@@ -147,9 +147,8 @@ if not st.session_state.logged_in:
     with col_center:
         st.markdown("<div class='login-card'>", unsafe_allow_html=True)
         
-        # 🌟 HUGE LOGO ON LOGIN 🌟
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=200) # Increased Size
+            st.image("logo.png", width=200)
         else:
             st.markdown("<h1 style='font-size: 70px; margin-bottom: 0;'>📦</h1>", unsafe_allow_html=True)
             
@@ -217,7 +216,7 @@ def parse_copy_paste_time(pasted_str):
         return get_datetime_obj(parts[0].strip(), parts[1].strip())
     return None
 
-# 🌟 EXTRACTION ENGINE (UNTOUCHED) 🌟
+# 🌟 EXTRACTION ENGINE 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
@@ -351,7 +350,6 @@ def extract_order_details(msg_dict):
 st.markdown("<br>", unsafe_allow_html=True)
 col_logo, col_title, col_logout = st.columns([1.5, 6, 2])
 with col_logo:
-    # 🌟 HUGE LOGO ON HOME SCREEN 🌟
     if os.path.exists("logo.png"): st.image("logo.png", width=110)
 with col_title: 
     st.markdown("<h2 class='main-header-title'>NWOP Dashboard</h2>", unsafe_allow_html=True)
@@ -658,16 +656,49 @@ with tab_workspace:
                     for dob in doubtful_orders:
                         st.warning(f"**Issue:** {', '.join(dob['issues'])} | **Time:** 🕒 {dob['order']['Time']} | **Phone:** {dob['order']['Phone Number']} | **Name:** {dob['order']['Name']}")
             
-            st.markdown("### 📋 Manage Orders")
+            # 🌟 MANUAL ORDER BUTTON 🌟
+            col_m1, col_m2 = st.columns([4, 1.5])
+            with col_m1:
+                st.markdown("### 📋 Manage Orders")
+            with col_m2:
+                if st.button("➕ Add Manual Order", type="secondary"):
+                    new_manual_order = {
+                        "Date": datetime.now().strftime("%d/%m/%y"),
+                        "Time": datetime.now().strftime("%I:%M %p"),
+                        "Name": "",
+                        "Phone Number": "",
+                        "Address": "",
+                        "Product": st.session_state.product_list[0],
+                        "Quantity": 1,
+                        "Price": 0,
+                        "Approval": "Pending",
+                        "Note": "Manual Entry",
+                        "is_duplicate": False
+                    }
+                    st.session_state.all_orders.append(new_manual_order)
+                    st.rerun()
+
             for i, row in enumerate(st.session_state.all_orders):
                 dup_tag = " (⚠️ Duplicate)" if row.get('is_duplicate', False) else ""
-                with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}", expanded=False):
+                man_tag = " (✍️ Manual)" if row.get('Note', '') == 'Manual Entry' else ""
+                
+                with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}{man_tag}", expanded=False):
+                    # 🌟 REMOVE ORDER BUTTON 🌟
+                    col_rm1, col_rm2 = st.columns([5, 1])
+                    with col_rm2:
+                        if st.button("🗑️ Remove", key=f"del_{i}", help="Delete this order"):
+                            st.session_state.all_orders.pop(i)
+                            st.rerun()
+                            
                     c1, c2 = st.columns([1, 1])
                     with c1:
                         new_name = st.text_input("👤 Name:", row['Name'], key=f"name_{i}")
                         new_addr = st.text_input("🏠 Address:", row['Address'], key=f"addr_{i}")
+                        new_phone = st.text_input("📱 Phone:", row['Phone Number'], key=f"phone_{i}")
+                        
                         st.session_state.all_orders[i]['Name'] = new_name
                         st.session_state.all_orders[i]['Address'] = new_addr
+                        st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
                         if row['Product'] not in st.session_state.product_list: st.session_state.product_list.append(row['Product'])
                         new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{i}")
@@ -682,7 +713,7 @@ with tab_workspace:
                         status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked"]
                         current_idx = status_list.index(row['Approval']) if row['Approval'] in status_list else 0
                         st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{i}")
-                        st.markdown(f'''<a href="tel:{row['Phone Number']}" style="display:inline-block; text-align:center; width:100%; background: linear-gradient(135deg, #10B981, #059669); color:white; padding:10px 15px; border-radius:25px; margin-top:20px; font-weight:bold; box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3); text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
+                        st.markdown(f'''<a href="tel:{st.session_state.all_orders[i]['Phone Number']}" style="display:inline-block; text-align:center; width:100%; background: linear-gradient(135deg, #10B981, #059669); color:white; padding:10px 15px; border-radius:25px; margin-top:20px; font-weight:bold; box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3); text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
 
             st.markdown("---")
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
@@ -837,7 +868,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v9.0 (Flawless Premium UI Edition)")
+    st.markdown("**Version:** NWOP v9.5 (Manual Entry System)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -861,7 +892,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 9.0 (Premium UI Edition)
+    * **Version:** 9.5 (Manual Entry Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
