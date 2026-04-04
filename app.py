@@ -26,122 +26,85 @@ except ImportError:
     SELENIUM_AVAILABLE = False
 
 # --- CONFIG & CUSTOM CSS (ULTRA-MODERN MOBILE UI) ---
-st.set_page_config(page_title="NWOP - Nazrul's Order Parser", page_icon="📦", layout="wide")
+st.set_page_config(page_title="NWOP - Nazrul's Order Parser", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    /* Full App Background (Adapts to Light/Dark Mode) */
-    .stApp {
-        background-color: var(--secondary-background-color) !important;
-    }
+    /* Full App Background */
+    .stApp { background-color: var(--secondary-background-color) !important; }
     
-    /* Center the main container & add padding for mobile feel */
-    .block-container {
-        padding-top: 2rem !important;
-        padding-bottom: 3rem !important;
-        max-width: 900px !important; 
-    }
+    /* Main Content Padding */
+    .block-container { padding-top: 2rem !important; padding-bottom: 3rem !important; max-width: 1000px !important; }
 
-    /* Floating Cards for Expanders (Order Lists) */
+    /* Floating Cards for Expanders */
     [data-testid="stExpander"] {
         background-color: var(--background-color) !important;
         border-radius: 20px !important;
         border: none !important;
-        box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.06) !important;
-        margin-bottom: 20px !important;
+        box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.05) !important;
+        margin-bottom: 15px !important;
         overflow: hidden !important;
     }
     [data-testid="stExpander"] > details > summary {
-        padding: 15px !important;
-        font-weight: 700 !important;
-        font-size: 1.05rem !important;
+        padding: 18px !important; font-weight: 700 !important; font-size: 1.05rem !important;
     }
     
-    /* Metrics / Status Cards (Like the GreenZone Screenshot) */
+    /* Metrics / Status Cards */
     [data-testid="stMetric"] {
         background-color: var(--background-color) !important;
         border-radius: 20px !important;
         padding: 20px 10px !important;
-        box-shadow: 0px 8px 24px rgba(0, 0, 0, 0.06) !important;
+        box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.05) !important;
         text-align: center !important;
-        border: 1px solid rgba(128, 128, 128, 0.05) !important;
     }
     [data-testid="stMetricValue"] {
-        font-size: 2.2rem !important;
-        font-weight: 900 !important;
-        color: #10B981 !important; /* Premium Emerald Green */
+        font-size: 2.3rem !important; font-weight: 900 !important; color: #10B981 !important; 
     }
-    [data-testid="stMetricLabel"] {
-        font-size: 1rem !important;
-        font-weight: 700 !important;
-        opacity: 0.7 !important;
-    }
+    [data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 700 !important; opacity: 0.7 !important; }
 
     /* Modern Buttons */
     .stButton > button {
-        border-radius: 25px !important;
-        border: none !important;
-        padding: 10px 24px !important;
-        font-weight: 800 !important;
-        letter-spacing: 0.5px !important;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1) !important;
-        transition: all 0.3s ease !important;
-        width: 100% !important;
+        border-radius: 25px !important; border: none !important; padding: 12px 24px !important;
+        font-weight: 800 !important; letter-spacing: 0.5px !important; width: 100% !important;
+        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1) !important; transition: all 0.3s ease !important;
     }
-    .stButton > button:hover {
-        transform: translateY(-3px) !important;
-        box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.15) !important;
-    }
-    
-    /* Primary Button Style (Gradient like screenshot) */
-    .stButton > button[kind="primary"] {
-        background: linear-gradient(135deg, #10B981, #059669) !important;
-        color: white !important;
-    }
+    .stButton > button:hover { transform: translateY(-3px) !important; box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.15) !important; }
+    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: white !important; }
 
-    /* Tabs styling for mobile (Pill shaped) */
-    .stTabs [data-baseweb="tab-list"] {
-        background-color: transparent !important;
-        gap: 8px !important;
-        padding-bottom: 10px !important;
-    }
+    /* Pill shaped Tabs */
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent !important; gap: 8px !important; padding-bottom: 10px !important; }
     .stTabs [data-baseweb="tab"] {
-        background-color: rgba(128, 128, 128, 0.1) !important;
-        border-radius: 25px !important;
-        padding: 8px 20px !important;
-        border: none !important;
-        font-weight: 700 !important;
-        font-size: 0.95rem !important;
+        background-color: rgba(128, 128, 128, 0.08) !important; border-radius: 25px !important;
+        padding: 8px 22px !important; border: none !important; font-weight: 700 !important; font-size: 0.95rem !important;
     }
-    .stTabs [aria-selected="true"] {
-        background-color: #10B981 !important;
-        color: #FFFFFF !important;
-        box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3) !important;
-    }
+    .stTabs [aria-selected="true"] { background-color: #10B981 !important; color: #FFFFFF !important; box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3) !important; }
 
-    /* Input Fields (Rounded & Soft) */
+    /* Input Fields */
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-        border-radius: 12px !important;
-        border: 1px solid rgba(128, 128, 128, 0.2) !important;
-        padding: 10px !important;
-        background-color: var(--background-color) !important;
+        border-radius: 12px !important; border: 1px solid rgba(128, 128, 128, 0.2) !important;
+        padding: 10px !important; background-color: var(--background-color) !important;
     }
 
-    /* Custom Typography */
-    .main-header-title { margin-top: -5px; color: var(--text-color); font-weight: 900; font-size: 2rem; }
-    .welcome-text { color: gray; font-size: 1rem; margin-top: -10px; margin-bottom: 25px; }
-    .dev-text { text-align: center; color: gray; font-size: 13px; margin-top: 5px; }
+    /* Custom Header Typography */
+    .main-header-title { margin-top: 10px; color: var(--text-color); font-weight: 900; font-size: 2.2rem; }
+    .welcome-text { color: gray; font-size: 1.05rem; margin-top: -10px; margin-bottom: 25px; }
 
-    /* Hide default Streamlit elements */
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    header {visibility: hidden;}
+    /* Login Premium Card */
+    .login-card {
+        background-color: var(--background-color);
+        padding: 40px;
+        border-radius: 30px;
+        box-shadow: 0px 15px 40px rgba(0,0,0,0.08);
+        text-align: center;
+        border: 1px solid rgba(128,128,128,0.08);
+        margin-top: 20px;
+    }
 
     @media (max-width: 768px) {
-        .main-header-title { font-size: 1.6rem; text-align: left; }
+        .main-header-title { font-size: 1.8rem; margin-top: 5px; text-align: center; }
+        .welcome-text { text-align: center; }
         .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; }
-        div[data-testid="stMetric"] { padding: 15px 5px !important; }
-        div[data-testid="stMetricValue"] { font-size: 1.8rem !important; }
+        .login-card { padding: 25px; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -180,22 +143,21 @@ if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col_l1, col_l2, col_l3 = st.columns([1, 10, 1])
-    with col_l2:
-        st.markdown("<div style='background-color: var(--background-color); padding: 40px; border-radius: 25px; box-shadow: 0px 10px 30px rgba(0,0,0,0.08); text-align: center;'>", unsafe_allow_html=True)
+    _, col_center, _ = st.columns([1, 10, 1])
+    with col_center:
+        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
         
+        # 🌟 HUGE LOGO ON LOGIN 🌟
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=120)
+            st.image("logo.png", width=200) # Increased Size
         else:
-            st.markdown("<h1 style='font-size: 50px; margin-bottom: 0;'>📦</h1>", unsafe_allow_html=True)
+            st.markdown("<h1 style='font-size: 70px; margin-bottom: 0;'>📦</h1>", unsafe_allow_html=True)
             
-        st.markdown("<h2 style='color: var(--text-color); font-weight:800; margin-top: 10px;'>NWOP Workspace</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: gray; font-size: 14px;'>Developed by <b>Nazrul Rana</b> | WhatsApp: +880164143400</p>", unsafe_allow_html=True)
-        st.markdown("<hr style='border-top: 1px solid rgba(128,128,128,0.1);'>", unsafe_allow_html=True)
+        st.markdown("<h2 style='color: var(--text-color); font-weight:900; margin-top: 15px;'>NWOP Access</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: gray; font-size: 15px; margin-top:-5px;'>By <b>Nazrul Rana</b> | WhatsApp: +880164143400</p>", unsafe_allow_html=True)
         
-        st.info("🔒 Secure Access Required")
-        password_input = st.text_input("Enter Master Password", type="password", label_visibility="collapsed", placeholder="Enter your password here...")
+        st.markdown("<br>", unsafe_allow_html=True)
+        password_input = st.text_input("Master Password", type="password", label_visibility="collapsed", placeholder="Enter Master Password...")
         
         st.markdown("<br>", unsafe_allow_html=True)
         if st.button("Unlock Dashboard", type="primary"):
@@ -386,13 +348,16 @@ def extract_order_details(msg_dict):
     }
 
 # --- APP LAYOUT HEADER ---
-col_logo, col_title, col_logout = st.columns([1, 7, 2])
+st.markdown("<br>", unsafe_allow_html=True)
+col_logo, col_title, col_logout = st.columns([1.5, 6, 2])
 with col_logo:
-    if os.path.exists("logo.png"): st.image("logo.png", width=65)
+    # 🌟 HUGE LOGO ON HOME SCREEN 🌟
+    if os.path.exists("logo.png"): st.image("logo.png", width=110)
 with col_title: 
     st.markdown("<h2 class='main-header-title'>NWOP Dashboard</h2>", unsafe_allow_html=True)
     st.markdown("<div class='welcome-text'>Welcome back, Nazrul! Here's your overview.</div>", unsafe_allow_html=True)
 with col_logout: 
+    st.markdown("<br>", unsafe_allow_html=True)
     if st.button("🚪 Logout", type="secondary"):
         st.session_state.logged_in = False
         st.rerun()
@@ -872,7 +837,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v8.5 (Ultra Modern UI Edition)")
+    st.markdown("**Version:** NWOP v9.0 (Flawless Premium UI Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -896,7 +861,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 8.5 (Ultra Modern UI Edition)
+    * **Version:** 9.0 (Premium UI Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
