@@ -5,6 +5,7 @@ import time
 import hashlib
 import json
 import os
+import pytz
 from io import BytesIO
 from datetime import datetime, date, time as dt_time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -25,8 +26,21 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
 
+# --- BANGLADESH TIMEZONE SETUP ---
+BD_TZ = pytz.timezone('Asia/Dhaka')
+
 # --- CONFIG & CUSTOM CSS (ULTRA-MODERN MOBILE UI) ---
-st.set_page_config(page_title="NWOP - Nazrul's Order Parser", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(
+    page_title="NWOP - Nazrul's Order Parser", 
+    page_icon="📦", 
+    layout="wide", 
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': None,
+        'Report a bug': None,
+        'About': "NWOP Enterprise Edition - Developed by Nazrul Rana"
+    }
+)
 
 st.markdown("""
     <style>
@@ -35,6 +49,10 @@ st.markdown("""
     
     /* Main Content Padding */
     .block-container { padding-top: 2rem !important; padding-bottom: 3rem !important; max-width: 1000px !important; }
+
+    /* HIDE GITHUB ICON BUT KEEP MENU */
+    [data-testid="stToolbar"] a { display: none !important; } 
+    footer { display: none !important; }
 
     /* Floating Cards for Expanders */
     [data-testid="stExpander"] {
@@ -132,7 +150,7 @@ if 'task_history' not in st.session_state or 'last_checkpoint' not in st.session
     st.session_state.last_checkpoint = chk
 
 def log_task(task_desc):
-    timestamp = datetime.now().strftime("%d %b %Y, %I:%M %p")
+    timestamp = datetime.now(BD_TZ).strftime("%d %b %Y, %I:%M %p")
     st.session_state.task_history.insert(0, f"✅ **{timestamp}**: {task_desc}")
     save_data(st.session_state.task_history, st.session_state.last_checkpoint)
 
@@ -171,7 +189,7 @@ if not st.session_state.logged_in:
 # --- SESSION STATE (MEMORY) ---
 if 'all_orders' not in st.session_state: st.session_state.all_orders = []
 if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages = []
-if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now().strftime("%d/%m/%y")
+if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now(BD_TZ).strftime("%d/%m/%y")
 if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
 if 'product_list' not in st.session_state:
     st.session_state.product_list = ['Electronic Grinder', 'Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Check Manually']
@@ -259,14 +277,12 @@ def extract_order_details(msg_dict):
     quantity = int(qty_match.group(1)) if qty_match else 1
     if qty_match: body_en = body_en.replace(qty_match.group(0), ' ')
 
-    # 🌟 DEFAULT PRODUCT = Electronic Grinder
     product = "Electronic Grinder"
     for kw in st.session_state.product_list:
         if kw.lower() in body_en.lower() and kw not in ["Check Manually", "Electronic Grinder"]:
             product = kw
             break
             
-    # Extra safety check for blender
     if product == "Electronic Grinder":
         if re.search(r'blender', body_en, re.IGNORECASE): 
             product = "Electric Blender"
@@ -378,7 +394,7 @@ with tab_workspace:
 
         if filter_type == "Specific Date":
             st.sidebar.caption("WhatsApp-এ ডেট যেভাবে আছে ঠিক সেভাবেই লিখুন:")
-            target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", "3/4/26")
+            target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", datetime.now(BD_TZ).strftime("%-m/%-d/%y"))
         elif filter_type == "Time Range (Copy-Paste)":
             st.sidebar.caption("WhatsApp থেকে ব্র্যাকেট সহ টাইম কপি করে দিন:")
             start_str = st.sidebar.text_input("Start Time:", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else "[3/4/26, 9:21:30 PM]")
@@ -400,7 +416,7 @@ with tab_workspace:
                                 if current_msg: messages.append(current_msg)
                                 date_str, time_str = match.group(1), match.group(2)
                                 msg_dt = get_datetime_obj(date_str, time_str)
-                                dt_obj = msg_dt.date() if msg_dt else date.today()
+                                dt_obj = msg_dt.date() if msg_dt else datetime.now(BD_TZ).date()
                                 current_msg = {"date_obj": dt_obj, "date_str": date_str, "time_str": time_str, "msg_dt": msg_dt, "text": line}
                             else:
                                 if current_msg: current_msg["text"] += "\n" + line
@@ -440,7 +456,7 @@ with tab_workspace:
                         st.session_state.ignored_messages = temp_ignored
                         if temp_orders:
                             st.session_state.all_orders = temp_orders 
-                            st.session_state.sheet_date = "Time_Range_Export" if filter_type == "Time Range (Copy-Paste)" else target_date_str.replace('/', '-') if filter_type == "Specific Date" else f"Bulk_{datetime.now().strftime('%d-%m-%y')}"
+                            st.session_state.sheet_date = "Time_Range_Export" if filter_type == "Time Range (Copy-Paste)" else target_date_str.replace('/', '-') if filter_type == "Specific Date" else f"Bulk_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"
                             st.session_state.total_extracted_today += len(temp_orders)
                             
                             last_order = temp_orders[-1]
@@ -596,7 +612,7 @@ with tab_workspace:
                             st.session_state.ignored_messages = temp_ignored
                             if temp_orders:
                                 st.session_state.all_orders = temp_orders
-                                st.session_state.sheet_date = f"Live_Scrape_{datetime.now().strftime('%d-%m-%y_%H%M')}"
+                                st.session_state.sheet_date = f"Live_Scrape_{datetime.now(BD_TZ).strftime('%d-%m-%y_%H%M')}"
                                 st.session_state.total_extracted_today += len(temp_orders)
                                 
                                 last_order = temp_orders[-1]
@@ -664,8 +680,8 @@ with tab_workspace:
             with col_m2:
                 if st.button("➕ Add Manual Order", type="secondary"):
                     new_manual_order = {
-                        "Date": datetime.now().strftime("%d/%m/%y"),
-                        "Time": datetime.now().strftime("%I:%M %p"),
+                        "Date": datetime.now(BD_TZ).strftime("%d/%m/%y"),
+                        "Time": datetime.now(BD_TZ).strftime("%I:%M %p"),
                         "Name": "",
                         "Phone Number": "",
                         "Address": "",
@@ -813,10 +829,7 @@ with tab_merge:
             try:
                 all_dfs = []
                 for file in uploaded_excels:
-                    # 🌟 FIX: DTYPE=STR TO KEEP '0' IN PHONE NUMBERS 🌟
                     df = pd.read_excel(file, sheet_name="Orders", dtype=str)
-                    
-                    # Clean any trailing ".0" if it was corrupted previously
                     if 'Phone Number' in df.columns:
                         df['Phone Number'] = df['Phone Number'].fillna("N/A").apply(lambda x: str(x).replace('.0', '') if str(x).endswith('.0') else str(x))
                     all_dfs.append(df)
@@ -840,7 +853,7 @@ with tab_merge:
                     worksheet.add_data_validation(status_dv)
                     status_dv.add('J2:J10000') 
                     
-                    pd.DataFrame({"Date Tag": [f"Merged_{datetime.now().strftime('%d-%m-%y')}"], "Total Orders": [len(merged_df)]}).to_excel(writer, index=False, sheet_name="Summary")
+                    pd.DataFrame({"Date Tag": [f"Merged_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"], "Total Orders": [len(merged_df)]}).to_excel(writer, index=False, sheet_name="Summary")
                     for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                     
                     prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
@@ -873,7 +886,7 @@ with tab_merge:
                     st.download_button(
                         label="📥 Download Master Excel",
                         data=output_merge.getvalue(),
-                        file_name=f"NWOP_Master_{datetime.now().strftime('%d-%m-%y')}.xlsx",
+                        file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.xlsx",
                         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                         type="primary",
                         use_container_width=True,
@@ -883,7 +896,7 @@ with tab_merge:
                     st.download_button(
                         label="📊 Download CSV (For Google Sheets)",
                         data=merged_df.to_csv(index=False).encode('utf-8'),
-                        file_name=f"NWOP_Master_{datetime.now().strftime('%d-%m-%y')}.csv",
+                        file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv",
                         mime="text/csv",
                         type="secondary",
                         use_container_width=True,
@@ -906,7 +919,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v10.0 (Ultimate Fixes Edition)")
+    st.markdown("**Version:** NWOP v11.0 (BST & Secure Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -930,7 +943,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 10.0 (Ultimate Features Edition)
+    * **Version:** 11.0 (BST & Secure Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
