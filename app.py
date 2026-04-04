@@ -25,18 +25,11 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
 
-# --- CONFIG & CUSTOM CSS (ULTRA-MODERN MOBILE UI + WHITE-LABEL) ---
+# --- CONFIG & CUSTOM CSS (ULTRA-MODERN MOBILE UI) ---
 st.set_page_config(page_title="NWOP - Nazrul's Order Parser", page_icon="📦", layout="wide", initial_sidebar_state="expanded")
 
 st.markdown("""
     <style>
-    /* 🔥 COMPLETE WHITE-LABEL: HIDE STREAMLIT DEFAULTS & GITHUB ICON 🔥 */
-    #MainMenu {visibility: hidden !important;}
-    header {visibility: hidden !important;}
-    footer {visibility: hidden !important;}
-    [data-testid="stToolbar"] {visibility: hidden !important;}
-    .stDeployButton {display: none !important;}
-
     /* Full App Background */
     .stApp { background-color: var(--secondary-background-color) !important; }
     
@@ -266,12 +259,14 @@ def extract_order_details(msg_dict):
     quantity = int(qty_match.group(1)) if qty_match else 1
     if qty_match: body_en = body_en.replace(qty_match.group(0), ' ')
 
+    # 🌟 DEFAULT PRODUCT = Electronic Grinder
     product = "Electronic Grinder"
     for kw in st.session_state.product_list:
         if kw.lower() in body_en.lower() and kw not in ["Check Manually", "Electronic Grinder"]:
             product = kw
             break
             
+    # Extra safety check for blender
     if product == "Electronic Grinder":
         if re.search(r'blender', body_en, re.IGNORECASE): 
             product = "Electric Blender"
@@ -708,6 +703,8 @@ with tab_workspace:
                         if row['Product'] not in st.session_state.product_list: st.session_state.product_list.append(row['Product'])
                         new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{i}")
                         st.session_state.all_orders[i]['Product'] = new_prod
+                        
+                        # 📝 EDITABLE NOTE FIELD
                         st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{i}")
                         
                     with c2:
@@ -734,6 +731,7 @@ with tab_workspace:
                 if col not in export_df.columns: export_df[col] = ""
             export_df = export_df[export_columns]
             
+            # --- EXCEL EXPORT ---
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 export_df.to_excel(writer, index=False, sheet_name="Orders")
@@ -782,6 +780,8 @@ with tab_workspace:
                     use_container_width=True,
                     on_click=lambda: log_task(f"Downloaded Excel file: {filename}")
                 )
+            
+            # --- CSV (GOOGLE SHEETS) EXPORT ---
             with col_d2:
                 csv_data = export_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
@@ -813,7 +813,10 @@ with tab_merge:
             try:
                 all_dfs = []
                 for file in uploaded_excels:
+                    # 🌟 FIX: DTYPE=STR TO KEEP '0' IN PHONE NUMBERS 🌟
                     df = pd.read_excel(file, sheet_name="Orders", dtype=str)
+                    
+                    # Clean any trailing ".0" if it was corrupted previously
                     if 'Phone Number' in df.columns:
                         df['Phone Number'] = df['Phone Number'].fillna("N/A").apply(lambda x: str(x).replace('.0', '') if str(x).endswith('.0') else str(x))
                     all_dfs.append(df)
@@ -903,7 +906,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v10.5 (White-Label Edition)")
+    st.markdown("**Version:** NWOP v10.0 (Ultimate Fixes Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -927,7 +930,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 10.5 (White-Label Edition)
+    * **Version:** 10.0 (Ultimate Features Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
