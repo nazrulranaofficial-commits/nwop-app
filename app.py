@@ -44,6 +44,9 @@ st.set_page_config(
 
 st.markdown("""
     <style>
+    /* Smooth Scrolling for Jump Links */
+    html { scroll-behavior: smooth; }
+
     /* Full App Background */
     .stApp { background-color: var(--secondary-background-color) !important; }
     
@@ -57,37 +60,75 @@ st.markdown("""
     /* Floating Cards for Expanders */
     [data-testid="stExpander"] {
         background-color: var(--background-color) !important;
-        border-radius: 20px !important;
-        border: none !important;
-        box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.05) !important;
-        margin-bottom: 15px !important;
+        border-radius: 16px !important;
+        border: 1px solid rgba(128,128,128,0.08) !important;
+        box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.04) !important;
+        margin-bottom: 12px !important;
         overflow: hidden !important;
+        transition: all 0.3s ease;
+    }
+    [data-testid="stExpander"]:hover {
+        box-shadow: 0px 8px 25px rgba(0, 0, 0, 0.08) !important;
     }
     [data-testid="stExpander"] > details > summary {
-        padding: 18px !important; font-weight: 700 !important; font-size: 1.05rem !important;
+        padding: 16px !important; font-weight: 700 !important; font-size: 1.05rem !important;
     }
     
     /* Metrics / Status Cards */
     [data-testid="stMetric"] {
         background-color: var(--background-color) !important;
-        border-radius: 20px !important;
-        padding: 20px 10px !important;
-        box-shadow: 0px 6px 20px rgba(0, 0, 0, 0.05) !important;
+        border-radius: 16px !important;
+        padding: 15px 10px !important;
+        box-shadow: 0px 4px 15px rgba(0, 0, 0, 0.04) !important;
         text-align: center !important;
+        border: 1px solid rgba(128,128,128,0.08) !important;
     }
     [data-testid="stMetricValue"] {
-        font-size: 2.3rem !important; font-weight: 900 !important; color: #10B981 !important; 
+        font-size: 2rem !important; font-weight: 900 !important; color: #10B981 !important; 
     }
-    [data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 700 !important; opacity: 0.7 !important; }
+    [data-testid="stMetricLabel"] { font-size: 0.95rem !important; font-weight: 700 !important; opacity: 0.7 !important; }
 
     /* Modern Buttons */
     .stButton > button {
-        border-radius: 25px !important; border: none !important; padding: 12px 24px !important;
-        font-weight: 800 !important; letter-spacing: 0.5px !important; width: 100% !important;
-        box-shadow: 0px 4px 12px rgba(0, 0, 0, 0.1) !important; transition: all 0.3s ease !important;
+        border-radius: 20px !important; border: none !important; padding: 10px 20px !important;
+        font-weight: 800 !important; letter-spacing: 0.3px !important; width: 100% !important;
+        box-shadow: 0px 4px 10px rgba(0, 0, 0, 0.08) !important; transition: all 0.3s ease !important;
     }
-    .stButton > button:hover { transform: translateY(-3px) !important; box-shadow: 0px 8px 16px rgba(0, 0, 0, 0.15) !important; }
+    .stButton > button:hover { transform: translateY(-2px) !important; box-shadow: 0px 6px 15px rgba(0, 0, 0, 0.12) !important; }
     .stButton > button[kind="primary"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: white !important; }
+
+    /* Fix Button inside Doubtful Card */
+    .fix-btn {
+        background: linear-gradient(135deg, #F59E0B, #D97706);
+        color: white !important;
+        padding: 6px 16px;
+        border-radius: 20px;
+        text-decoration: none;
+        font-weight: 700;
+        font-size: 0.85rem;
+        box-shadow: 0 2px 5px rgba(245, 158, 11, 0.3);
+        transition: 0.3s;
+        display: inline-block;
+        white-space: nowrap;
+    }
+    .fix-btn:hover {
+        box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+        transform: translateY(-2px);
+    }
+    
+    /* Doubtful Alert Card */
+    .doubt-card {
+        padding: 12px 15px; 
+        border-left: 5px solid #F59E0B; 
+        background-color: var(--background-color); 
+        border-radius: 8px; 
+        margin-bottom: 10px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        border: 1px solid rgba(128,128,128,0.1);
+    }
 
     /* Pill shaped Tabs */
     .stTabs [data-baseweb="tab-list"] { background-color: transparent !important; gap: 8px !important; padding-bottom: 10px !important; }
@@ -99,7 +140,7 @@ st.markdown("""
 
     /* Input Fields */
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
-        border-radius: 12px !important; border: 1px solid rgba(128, 128, 128, 0.2) !important;
+        border-radius: 12px !important; border: 1px solid rgba(128, 128, 128, 0.15) !important;
         padding: 10px !important; background-color: var(--background-color) !important;
     }
 
@@ -111,8 +152,8 @@ st.markdown("""
     .login-card {
         background-color: var(--background-color);
         padding: 40px;
-        border-radius: 30px;
-        box-shadow: 0px 15px 40px rgba(0,0,0,0.08);
+        border-radius: 25px;
+        box-shadow: 0px 10px 30px rgba(0,0,0,0.06);
         text-align: center;
         border: 1px solid rgba(128,128,128,0.08);
         margin-top: 20px;
@@ -123,6 +164,8 @@ st.markdown("""
         .welcome-text { text-align: center; }
         .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; }
         .login-card { padding: 25px; }
+        .doubt-card { flex-direction: column; align-items: flex-start; gap: 10px; }
+        .fix-btn { width: 100%; text-align: center; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -166,7 +209,7 @@ if not st.session_state.logged_in:
         st.markdown("<div class='login-card'>", unsafe_allow_html=True)
         
         if os.path.exists("logo.png"):
-            st.image("logo.png", width=200)
+            st.image("logo.png", width=180)
         else:
             st.markdown("<h1 style='font-size: 70px; margin-bottom: 0;'>📦</h1>", unsafe_allow_html=True)
             
@@ -367,7 +410,7 @@ def extract_order_details(msg_dict):
 st.markdown("<br>", unsafe_allow_html=True)
 col_logo, col_title, col_logout = st.columns([1.5, 6, 2])
 with col_logo:
-    if os.path.exists("logo.png"): st.image("logo.png", width=110)
+    if os.path.exists("logo.png"): st.image("logo.png", width=100)
 with col_title: 
     st.markdown("<h2 class='main-header-title'>NWOP Dashboard</h2>", unsafe_allow_html=True)
     st.markdown("<div class='welcome-text'>Welcome back, Nazrul! Here's your overview.</div>", unsafe_allow_html=True)
@@ -631,12 +674,11 @@ with tab_workspace:
     # --- DASHBOARD UI ---
     if st.session_state.all_orders or st.session_state.ignored_messages:
         if st.session_state.all_orders:
-            df = pd.DataFrame(st.session_state.all_orders)
             doubtful_orders = []
             passed_checks = 0
-            total_checks = len(df) * 3
+            total_checks = len(st.session_state.all_orders) * 3
             
-            for idx, row in df.iterrows():
+            for i, row in enumerate(st.session_state.all_orders):
                 issues = []
                 p_check = re.match(r'^01[3-9]\d{8}$', str(row['Phone Number']))
                 pr_check = int(row['Price']) > 0
@@ -656,22 +698,36 @@ with tab_workspace:
                 if str(row['Address']).strip() == "N/A" or not str(row['Address']).strip(): issues.append("Missing Address")
                 if row.get('is_duplicate', False): issues.append("⚠️ Duplicate Data (Check Time/Date)")
                 
-                if issues: doubtful_orders.append({"order": row, "issues": issues})
+                # Store the original index 'i' so we can anchor to it later
+                if issues: doubtful_orders.append({"index": i, "order": row, "issues": issues})
             
             accuracy_score = round((passed_checks / total_checks) * 100, 1) if total_checks > 0 else 0
             
             st.markdown("<br>", unsafe_allow_html=True)
             m1, m2, m3, m4 = st.columns(4)
-            m1.metric("📦 Orders", len(df))
-            m2.metric("💰 Revenue", f"৳ {df['Price'].sum()}")
+            m1.metric("📦 Orders", len(st.session_state.all_orders))
+            m2.metric("💰 Revenue", f"৳ {sum(int(o['Price']) for o in st.session_state.all_orders)}")
             m3.metric("🎯 Accuracy", f"{accuracy_score}%")
             m4.metric("📈 Session", st.session_state.total_extracted_today)
 
+            # 🌟 NEW JUMP-TO-FIX DOUBTFUL SECTION 🌟
             if doubtful_orders:
-                st.error(f"⚠️ Warning: Found {len(doubtful_orders)} doubtful or duplicate entries!")
+                st.error(f"⚠️ Action Required: Found {len(doubtful_orders)} doubtful or duplicate entries!")
                 with st.expander("🚨 REVIEW DOUBTFUL ENTRIES", expanded=True):
                     for dob in doubtful_orders:
-                        st.warning(f"**Issue:** {', '.join(dob['issues'])} | **Time:** 🕒 {dob['order']['Time']} | **Phone:** {dob['order']['Phone Number']} | **Name:** {dob['order']['Name']}")
+                        idx = dob['index']
+                        issue_text = ', '.join(dob['issues'])
+                        st.markdown(f"""
+                            <div class="doubt-card">
+                                <div style="flex: 1;">
+                                    <strong style="color: #D97706;">Issue:</strong> {issue_text}<br>
+                                    <span style="color: gray; font-size:0.9rem;"><strong>Name:</strong> {dob['order']['Name']} | <strong>Phone:</strong> {dob['order']['Phone Number']}</span>
+                                </div>
+                                <div>
+                                    <a href="#order-{idx}" class="fix-btn">Fix 🔨</a>
+                                </div>
+                            </div>
+                        """, unsafe_allow_html=True)
             
             # 🌟 MANUAL ORDER BUTTON 🌟
             col_m1, col_m2 = st.columns([4, 1.5])
@@ -698,6 +754,9 @@ with tab_workspace:
             for i, row in enumerate(st.session_state.all_orders):
                 dup_tag = " (⚠️ Duplicate)" if row.get('is_duplicate', False) else ""
                 man_tag = " (✍️ Manual)" if row.get('Note', '') == 'Manual Entry' else ""
+                
+                # 🌟 INVISIBLE ANCHOR LINK FOR JUMPING 🌟
+                st.markdown(f'<div id="order-{i}" style="position: relative; top: -60px;"></div>', unsafe_allow_html=True)
                 
                 with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}{man_tag}", expanded=False):
                     col_rm1, col_rm2 = st.columns([5, 1])
@@ -919,7 +978,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v11.0 (BST & Secure Edition)")
+    st.markdown("**Version:** NWOP v12.0 (Pro Navigation UI)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -943,7 +1002,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 11.0 (BST & Secure Edition)
+    * **Version:** 12.0 (Pro Navigation Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
