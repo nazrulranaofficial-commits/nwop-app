@@ -174,7 +174,7 @@ if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages
 if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now().strftime("%d/%m/%y")
 if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
 if 'product_list' not in st.session_state:
-    st.session_state.product_list = ['Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Grinder', 'Grainder', 'Check Manually']
+    st.session_state.product_list = ['Electronic Grinder', 'Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Check Manually']
 
 def bn_to_en_digits(text):
     return text.translate(str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789'))
@@ -216,7 +216,7 @@ def parse_copy_paste_time(pasted_str):
         return get_datetime_obj(parts[0].strip(), parts[1].strip())
     return None
 
-# 🌟 EXTRACTION ENGINE 🌟
+# 🌟 SMART EXTRACTION ENGINE 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
@@ -229,7 +229,6 @@ def extract_order_details(msg_dict):
 
     body_en = body_en.replace('<This message was edited>', ' ')
     body_en = re.sub(r'অর্ডার\s*করতে\s*[-ঃ:]*\s*', ' ', body_en, flags=re.IGNORECASE)
-    body_en = re.sub(r'food\s*grind\s*blenders?', 'Electronic Grinder', body_en, flags=re.IGNORECASE)
 
     phone_match = re.search(PHONE_PATTERN, body_en)
     phone = "N/A"
@@ -260,15 +259,17 @@ def extract_order_details(msg_dict):
     quantity = int(qty_match.group(1)) if qty_match else 1
     if qty_match: body_en = body_en.replace(qty_match.group(0), ' ')
 
-    product = "Check Manually"
+    # 🌟 DEFAULT PRODUCT = Electronic Grinder
+    product = "Electronic Grinder"
     for kw in st.session_state.product_list:
-        if kw.lower() in body_en.lower() and kw != "Check Manually":
-            product = "Electronic Grinder" if kw.lower() in ['grinder', 'grainder'] else kw
+        if kw.lower() in body_en.lower() and kw not in ["Check Manually", "Electronic Grinder"]:
+            product = kw
             break
-    
-    if product == "Check Manually":
-        if re.search(r'grind|grainder', body_en, re.IGNORECASE): product = "Electronic Grinder"
-        elif re.search(r'blender', body_en, re.IGNORECASE): product = "Electric Blender"
+            
+    # Extra safety check for blender
+    if product == "Electronic Grinder":
+        if re.search(r'blender', body_en, re.IGNORECASE): 
+            product = "Electric Blender"
             
     for kw in st.session_state.product_list: 
         if kw != "Check Manually": body_en = re.sub(kw, ' ', body_en, flags=re.IGNORECASE)
@@ -668,7 +669,7 @@ with tab_workspace:
                         "Name": "",
                         "Phone Number": "",
                         "Address": "",
-                        "Product": st.session_state.product_list[0],
+                        "Product": "Electronic Grinder",
                         "Quantity": 1,
                         "Price": 0,
                         "Approval": "Pending",
@@ -683,7 +684,6 @@ with tab_workspace:
                 man_tag = " (✍️ Manual)" if row.get('Note', '') == 'Manual Entry' else ""
                 
                 with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}{man_tag}", expanded=False):
-                    # 🌟 REMOVE ORDER BUTTON 🌟
                     col_rm1, col_rm2 = st.columns([5, 1])
                     with col_rm2:
                         if st.button("🗑️ Remove", key=f"del_{i}", help="Delete this order"):
@@ -703,6 +703,10 @@ with tab_workspace:
                         if row['Product'] not in st.session_state.product_list: st.session_state.product_list.append(row['Product'])
                         new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{i}")
                         st.session_state.all_orders[i]['Product'] = new_prod
+                        
+                        # 📝 EDITABLE NOTE FIELD
+                        st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{i}")
+                        
                     with c2:
                         col_p, col_q = st.columns(2)
                         with col_p:
@@ -717,6 +721,7 @@ with tab_workspace:
 
             st.markdown("---")
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
+            csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
             
             export_data = [{k:v for k,v in order.items() if k != 'is_duplicate'} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
@@ -726,6 +731,7 @@ with tab_workspace:
                 if col not in export_df.columns: export_df[col] = ""
             export_df = export_df[export_columns]
             
+            # --- EXCEL EXPORT ---
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
                 export_df.to_excel(writer, index=False, sheet_name="Orders")
@@ -763,15 +769,30 @@ with tab_workspace:
                     worksheet.column_dimensions[col[0].column_letter].width = max_len + 2
 
             excel_data = output.getvalue()
-            st.download_button(
-                label="📥 Finalize & Download Excel File",
-                data=excel_data,
-                file_name=filename,
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                type="primary",
-                use_container_width=True,
-                on_click=lambda: log_task(f"Downloaded Excel file: {filename}")
-            )
+            col_d1, col_d2 = st.columns(2)
+            with col_d1:
+                st.download_button(
+                    label="📥 Download Excel File",
+                    data=excel_data,
+                    file_name=filename,
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    type="primary",
+                    use_container_width=True,
+                    on_click=lambda: log_task(f"Downloaded Excel file: {filename}")
+                )
+            
+            # --- CSV (GOOGLE SHEETS) EXPORT ---
+            with col_d2:
+                csv_data = export_df.to_csv(index=False).encode('utf-8')
+                st.download_button(
+                    label="📊 Download CSV (For Google Sheets)",
+                    data=csv_data,
+                    file_name=csv_filename,
+                    mime="text/csv",
+                    type="secondary",
+                    use_container_width=True,
+                    on_click=lambda: log_task(f"Downloaded CSV file for Google Sheets: {csv_filename}")
+                )
 
         if st.session_state.ignored_messages:
             st.markdown("<br>", unsafe_allow_html=True)
@@ -783,7 +804,7 @@ with tab_workspace:
 
 with tab_merge:
     st.header("🗂️ Excel Merger (Smart Sorter)")
-    st.info("Here you can upload multiple NWOP Excel files generated at different times of the day. The app will merge them, remove duplicates, sort them perfectly by Date & Time, and create a single Master File!")
+    st.info("Here you can upload multiple NWOP Excel files. The app will merge them, remove duplicates, sort them perfectly by Date & Time, and create a single Master File without losing phone number leading '0's!")
     
     uploaded_excels = st.file_uploader("📂 Select multiple Excel files", type=["xlsx"], accept_multiple_files=True)
     
@@ -792,7 +813,12 @@ with tab_merge:
             try:
                 all_dfs = []
                 for file in uploaded_excels:
-                    df = pd.read_excel(file, sheet_name="Orders")
+                    # 🌟 FIX: DTYPE=STR TO KEEP '0' IN PHONE NUMBERS 🌟
+                    df = pd.read_excel(file, sheet_name="Orders", dtype=str)
+                    
+                    # Clean any trailing ".0" if it was corrupted previously
+                    if 'Phone Number' in df.columns:
+                        df['Phone Number'] = df['Phone Number'].fillna("N/A").apply(lambda x: str(x).replace('.0', '') if str(x).endswith('.0') else str(x))
                     all_dfs.append(df)
                 
                 merged_df = pd.concat(all_dfs, ignore_index=True)
@@ -840,17 +866,29 @@ with tab_merge:
                             except: pass
                         worksheet.column_dimensions[col[0].column_letter].width = max_len + 2
                         
-                st.success(f"✅ Successfully combined {len(uploaded_excels)} files into {len(merged_df)} unique sorted orders! Ready to Download.")
+                st.success(f"✅ Successfully combined {len(uploaded_excels)} files into {len(merged_df)} unique sorted orders!")
                 
-                st.download_button(
-                    label="📥 Download Merged Master Excel",
-                    data=output_merge.getvalue(),
-                    file_name=f"NWOP_Master_{datetime.now().strftime('%d-%m-%y')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    type="primary",
-                    use_container_width=True,
-                    on_click=lambda: log_task(f"Merged {len(uploaded_excels)} files into 1 Master Excel File.")
-                )
+                col_md1, col_md2 = st.columns(2)
+                with col_md1:
+                    st.download_button(
+                        label="📥 Download Master Excel",
+                        data=output_merge.getvalue(),
+                        file_name=f"NWOP_Master_{datetime.now().strftime('%d-%m-%y')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        type="primary",
+                        use_container_width=True,
+                        on_click=lambda: log_task(f"Merged {len(uploaded_excels)} files into 1 Master Excel File.")
+                    )
+                with col_md2:
+                    st.download_button(
+                        label="📊 Download CSV (For Google Sheets)",
+                        data=merged_df.to_csv(index=False).encode('utf-8'),
+                        file_name=f"NWOP_Master_{datetime.now().strftime('%d-%m-%y')}.csv",
+                        mime="text/csv",
+                        type="secondary",
+                        use_container_width=True,
+                        on_click=lambda: log_task(f"Merged CSV Downloaded.")
+                    )
             except Exception as e:
                 st.error(f"Error processing files: {e}. Please make sure you uploaded valid NWOP Excel files.")
 
@@ -868,7 +906,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v9.5 (Manual Entry System)")
+    st.markdown("**Version:** NWOP v10.0 (Ultimate Fixes Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -892,7 +930,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 9.5 (Manual Entry Edition)
+    * **Version:** 10.0 (Ultimate Features Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
