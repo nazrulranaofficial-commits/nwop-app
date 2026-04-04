@@ -158,7 +158,7 @@ def parse_copy_paste_time(pasted_str):
         return get_datetime_obj(parts[0].strip(), parts[1].strip())
     return None
 
-# 🌟 EXTRACTION ENGINE (UNTOUCHED) 🌟
+# 🌟 EXTRACTION ENGINE 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
@@ -300,8 +300,7 @@ with col_logout:
         st.session_state.logged_in = False
         st.rerun()
 
-# 🌟 ADDED MERGE TAB 🌟
-tab_workspace, tab_merge, tab_history, tab_settings = st.tabs(["🚀 Workspace", "🗂️ Merge Excels", "📜 Task History", "⚙️ Settings"])
+tab_workspace, tab_merge, tab_history, tab_settings, tab_about = st.tabs(["🚀 Workspace", "🗂️ Merge Excels", "📜 Task History", "⚙️ Settings", "ℹ️ About"])
 
 with tab_workspace:
     st.sidebar.header("🛠️ Working Mode")
@@ -611,7 +610,12 @@ with tab_workspace:
                         new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{i}")
                         st.session_state.all_orders[i]['Product'] = new_prod
                     with c2:
-                        st.write(f"💰 **Price:** ৳{row['Price']} (Qty: {row['Quantity']})")
+                        col_p, col_q = st.columns(2)
+                        with col_p:
+                            st.session_state.all_orders[i]['Price'] = st.number_input("💰 Price (৳):", value=int(row['Price']), min_value=0, key=f"price_{i}")
+                        with col_q:
+                            st.session_state.all_orders[i]['Quantity'] = st.number_input("⚖️ Qty:", value=int(row['Quantity']), min_value=0, key=f"qty_{i}")
+                            
                         status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked"]
                         current_idx = status_list.index(row['Approval']) if row['Approval'] in status_list else 0
                         st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{i}")
@@ -683,7 +687,6 @@ with tab_workspace:
                     clean_display = re.split(r'^\[.*?\] .*?:\s', ig_msg['Text'], maxsplit=1)[-1]
                     st.code(clean_display, language="text")
 
-# 🌟 NEW TAB: EXCEL MERGER 🌟
 with tab_merge:
     st.header("🗂️ Excel Merger (Smart Sorter)")
     st.info("Ekhane din er vibinno shomoy toiri kora NWOP Excel file gulo eksathe upload koro. App shobgulo eksathe kore, Date & Time onujayi sort kore, ekta Master File toiri kore dibe!")
@@ -707,7 +710,6 @@ with tab_merge:
                 
                 merged_df['SNO'] = range(1, len(merged_df) + 1)
                 
-                # Excel styling for merged file
                 output_merge = BytesIO()
                 with pd.ExcelWriter(output_merge, engine='openpyxl') as writer:
                     merged_df.to_excel(writer, index=False, sheet_name="Orders")
@@ -772,10 +774,24 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v6.5 (Merge Tool Added)")
+    st.markdown("**Version:** NWOP v7.0 (Enterprise Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
         st.session_state.total_extracted_today = 0
         log_task("App memory completely wiped.")
         st.rerun()
+
+# 🌟 NEW TAB: ABOUT DEVELOPER 🌟
+with tab_about:
+    st.header("ℹ️ About Developer")
+    st.markdown("---")
+    st.markdown("### **Nazrul's Whatsapp Order Parser (NWOP)**")
+    st.write("This application is designed to automate the extraction and management of WhatsApp orders with smart parsing, duplicate detection, and direct Excel integration.")
+    
+    st.markdown("#### 👨‍💻 Developer Profile")
+    st.write("**Name:** Nazrul Rana")
+    st.write("**WhatsApp:** +880164143400")
+    st.write("**Version:** 7.0 (Enterprise Edition)")
+    
+    st.info("For any bug reports, feature requests, or custom software development, please contact via WhatsApp.")
