@@ -25,31 +25,103 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
 
-# --- CONFIG & CUSTOM CSS (MODERN & DARK-MODE FRIENDLY UI) ---
+# --- CONFIG & CUSTOM CSS (ULTRA-MODERN MOBILE UI) ---
 st.set_page_config(page_title="NWOP - Nazrul's Order Parser", page_icon="📦", layout="wide")
 
 st.markdown("""
     <style>
-    div[data-testid="stMetricValue"] { font-size: 1.8rem; font-weight: 800; color: var(--primary-color); }
-    div[data-testid="stExpander"] { 
-        border-radius: 12px; 
-        border: 1px solid var(--border-color); 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        margin-bottom: 12px; 
+    /* Global App Background */
+    .stApp { background-color: var(--background-color); }
+    
+    /* Main Content Padding */
+    .css-1d391kg { padding: 1.5rem 1rem; }
+    
+    /* Beautiful Floating Cards for Metrics (Like the screenshot) */
+    div[data-testid="stMetric"] {
+        background-color: var(--secondary-background-color);
+        padding: 15px 20px;
+        border-radius: 16px;
+        box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(128, 128, 128, 0.1);
+        text-align: center;
     }
-    .stButton>button { 
-        border-radius: 8px; 
-        font-weight: bold; 
-        width: 100%; 
-        transition: 0.2s ease-in-out; 
+    div[data-testid="stMetricValue"] {
+        font-size: 2.2rem !important;
+        font-weight: 800;
+        color: var(--primary-color) !important;
     }
-    .stButton>button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.15); }
-    .stTabs [data-baseweb="tab-list"] { gap: 15px; }
-    .stTabs [data-baseweb="tab"] { font-size: 1.1rem; font-weight: 600; padding-bottom: 10px; }
-    .dev-text { text-align: center; color: gray; font-size: 14px; margin-top: -10px; }
-    .main-header-title { margin-top: -10px; color: var(--primary-color); }
+    div[data-testid="stMetricLabel"] {
+        font-size: 1rem !important;
+        font-weight: 600;
+        color: gray;
+    }
+
+    /* Soft Card UI for Expanders (Order Lists) */
+    div[data-testid="stExpander"] {
+        background-color: var(--secondary-background-color);
+        border-radius: 16px;
+        border: 1px solid rgba(128, 128, 128, 0.1);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04);
+        margin-bottom: 15px;
+        overflow: hidden;
+    }
+    div[data-testid="stExpander"] > details > summary {
+        padding: 15px;
+        font-size: 1.05rem;
+        font-weight: 600;
+    }
+
+    /* Modern Pill-Shaped Tabs */
+    .stTabs [data-baseweb="tab-list"] {
+        background-color: var(--secondary-background-color);
+        padding: 8px;
+        border-radius: 16px;
+        gap: 10px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    }
+    .stTabs [data-baseweb="tab"] {
+        padding: 8px 16px;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 1rem;
+        border: none;
+    }
+    .stTabs [aria-selected="true"] {
+        background-color: var(--primary-color);
+        color: white !important;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+    }
+
+    /* Premium Buttons */
+    .stButton>button {
+        border-radius: 12px;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        padding: 0.6rem 1.2rem;
+        transition: all 0.3s ease;
+        border: none;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.08);
+    }
+    .stButton>button:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 15px rgba(0,0,0,0.15);
+    }
+
+    /* Input Fields Modernization */
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] {
+        border-radius: 10px;
+        border: 1px solid rgba(128, 128, 128, 0.2);
+        padding: 10px;
+    }
+
+    /* Custom Headers */
+    .main-header-title { margin-top: -10px; color: var(--primary-color); font-weight: 800; font-size: 2.2rem; }
+    .welcome-text { color: gray; font-size: 1.1rem; margin-top: -10px; margin-bottom: 20px; }
+    .dev-text { text-align: center; color: gray; font-size: 14px; margin-top: 5px; }
+
     @media (max-width: 768px) {
-        .main-header-title { font-size: 1.8rem; margin-top: 10px; }
+        .main-header-title { font-size: 1.8rem; margin-top: 5px; }
+        .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; }
     }
     </style>
 """, unsafe_allow_html=True)
@@ -90,19 +162,19 @@ if 'logged_in' not in st.session_state:
 if not st.session_state.logged_in:
     col_l1, col_l2, col_l3 = st.columns([1, 1.5, 1])
     with col_l2:
-        st.markdown("<br>", unsafe_allow_html=True)
+        st.markdown("<br><br>", unsafe_allow_html=True)
         if os.path.exists("logo.png"):
             img_col1, img_col2, img_col3 = st.columns([1, 2, 1])
             with img_col2:
                 st.image("logo.png", use_container_width=True)
         
-        st.markdown("<h2 style='text-align: center; color: var(--primary-color);'>🔐 Nazrul's Whatsapp Order Parser</h2>", unsafe_allow_html=True)
+        st.markdown("<h2 style='text-align: center; color: var(--primary-color); font-weight:800;'>NWOP Workspace</h2>", unsafe_allow_html=True)
         st.markdown("<div class='dev-text'><b>Developer:</b> Nazrul Rana | <b>WhatsApp:</b> +880164143400</div>", unsafe_allow_html=True)
-        st.markdown("---")
+        st.markdown("<br>", unsafe_allow_html=True)
         
-        st.info("👋 Welcome! Please enter your master password to access NWOP.")
+        st.info("👋 Welcome back! Please enter your master password.")
         password_input = st.text_input("Master Password", type="password", placeholder="Enter password...")
-        if st.button("Login", type="primary"):
+        if st.button("Login Securely", type="primary"):
             if password_input == CORRECT_PASSWORD:
                 st.session_state.logged_in = True
                 st.rerun()
@@ -158,7 +230,7 @@ def parse_copy_paste_time(pasted_str):
         return get_datetime_obj(parts[0].strip(), parts[1].strip())
     return None
 
-# 🌟 EXTRACTION ENGINE 🌟
+# 🌟 EXTRACTION ENGINE (UNTOUCHED) 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
@@ -288,19 +360,21 @@ def extract_order_details(msg_dict):
         "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False
     }
 
-# --- APP LAYOUT & TABS ---
+# --- APP LAYOUT HEADER ---
 col_logo, col_title, col_logout = st.columns([1.5, 6.5, 1])
 with col_logo:
-    if os.path.exists("logo.png"): st.image("logo.png", width=120)
+    if os.path.exists("logo.png"): st.image("logo.png", width=90)
 with col_title: 
-    st.markdown("<h2 class='main-header-title'>NWOP - Order Parser</h2>", unsafe_allow_html=True)
+    st.markdown("<h2 class='main-header-title'>NWOP Dashboard</h2>", unsafe_allow_html=True)
+    st.markdown("<div class='welcome-text'>Welcome back, Nazrul! Here's your overview.</div>", unsafe_allow_html=True)
 with col_logout: 
     st.markdown("<br>", unsafe_allow_html=True)
-    if st.button("Logout"):
+    if st.button("Logout", type="secondary"):
         st.session_state.logged_in = False
         st.rerun()
 
-tab_workspace, tab_merge, tab_history, tab_settings, tab_about = st.tabs(["🚀 Workspace", "🗂️ Merge Excels", "📜 Task History", "⚙️ Settings", "ℹ️ About"])
+# --- TABS ---
+tab_workspace, tab_merge, tab_history, tab_settings, tab_about = st.tabs(["🚀 Workspace", "🗂️ Merge Excels", "📜 History", "⚙️ Settings", "ℹ️ About"])
 
 with tab_workspace:
     st.sidebar.header("🛠️ Working Mode")
@@ -585,9 +659,9 @@ with tab_workspace:
             st.markdown("<br>", unsafe_allow_html=True)
             m1, m2, m3, m4 = st.columns(4)
             m1.metric("📦 Valid Orders", len(df))
-            m2.metric("💰 Total Revenue", f"৳ {df['Price'].sum()}")
-            m3.metric("🎯 Data Accuracy", f"{accuracy_score}%")
-            m4.metric("📈 Session Total", st.session_state.total_extracted_today)
+            m2.metric("💰 Revenue", f"৳ {df['Price'].sum()}")
+            m3.metric("🎯 Accuracy", f"{accuracy_score}%")
+            m4.metric("📈 Session", st.session_state.total_extracted_today)
 
             if doubtful_orders:
                 st.error(f"⚠️ Warning: Found {len(doubtful_orders)} doubtful or duplicate entries!")
@@ -619,7 +693,7 @@ with tab_workspace:
                         status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked"]
                         current_idx = status_list.index(row['Approval']) if row['Approval'] in status_list else 0
                         st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{i}")
-                        st.markdown(f'''<a href="tel:{row['Phone Number']}" style="display:inline-block; background-color:#25D366; color:white; padding:8px 15px; border-radius:5px; margin-top:20px; text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
+                        st.markdown(f'''<a href="tel:{row['Phone Number']}" style="display:inline-block; text-align:center; width:100%; background-color:#25D366; color:white; padding:10px 15px; border-radius:10px; margin-top:20px; font-weight:bold; text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
 
             st.markdown("---")
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
@@ -649,9 +723,9 @@ with tab_workspace:
                 worksheet.add_data_validation(prod_dv)
                 prod_dv.add('G2:G10000') 
                 
-                header_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-                sno_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-                for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
+                sno_fill = PatternFill(start_color="ff4b4b", end_color="ff4b4b", fill_type="solid")
+                for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                 for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
                     for cell in row:
                         cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
@@ -681,7 +755,7 @@ with tab_workspace:
 
         if st.session_state.ignored_messages:
             st.markdown("<br>", unsafe_allow_html=True)
-            with st.expander(f"⚠️ Ignored/System Messages ({len(st.session_state.ignored_messages)} items) - Check for missed orders", expanded=False):
+            with st.expander(f"⚠️ System Messages & Ignored Texts ({len(st.session_state.ignored_messages)} items)", expanded=False):
                 for ig_msg in st.session_state.ignored_messages:
                     st.caption(f"🕒 {ig_msg['Date']} - {ig_msg['Time']}")
                     clean_display = re.split(r'^\[.*?\] .*?:\s', ig_msg['Text'], maxsplit=1)[-1]
@@ -689,7 +763,7 @@ with tab_workspace:
 
 with tab_merge:
     st.header("🗂️ Excel Merger (Smart Sorter)")
-    st.info("Ekhane din er vibinno shomoy toiri kora NWOP Excel file gulo eksathe upload koro. App shobgulo eksathe kore, Date & Time onujayi sort kore, ekta Master File toiri kore dibe!")
+    st.info("Here you can upload multiple NWOP Excel files generated at different times of the day. The app will merge them, remove duplicates, sort them perfectly by Date & Time, and create a single Master File!")
     
     uploaded_excels = st.file_uploader("📂 Select multiple Excel files", type=["xlsx"], accept_multiple_files=True)
     
@@ -727,9 +801,9 @@ with tab_merge:
                     worksheet.add_data_validation(prod_dv)
                     prod_dv.add('G2:G10000') 
                     
-                    header_fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
-                    sno_fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-                    for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                    header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
+                    sno_fill = PatternFill(start_color="ff4b4b", end_color="ff4b4b", fill_type="solid")
+                    for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
                         for cell in row:
                             cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
@@ -774,7 +848,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v7.0 (Enterprise Edition)")
+    st.markdown("**Version:** NWOP v8.0 (Modern Mobile UI Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -782,16 +856,22 @@ with tab_settings:
         log_task("App memory completely wiped.")
         st.rerun()
 
-# 🌟 NEW TAB: ABOUT DEVELOPER 🌟
 with tab_about:
     st.header("ℹ️ About Developer")
     st.markdown("---")
-    st.markdown("### **Nazrul's Whatsapp Order Parser (NWOP)**")
-    st.write("This application is designed to automate the extraction and management of WhatsApp orders with smart parsing, duplicate detection, and direct Excel integration.")
+    
+    col_a1, col_a2 = st.columns([1, 3])
+    with col_a1:
+        if os.path.exists("logo.png"): st.image("logo.png", width=150)
+    with col_a2:
+        st.markdown("### **Nazrul's Whatsapp Order Parser (NWOP)**")
+        st.write("This application is an enterprise-grade automation tool designed to extract, parse, and manage WhatsApp orders with high accuracy, smart formatting, duplicate detection, and direct Excel compilation.")
     
     st.markdown("#### 👨‍💻 Developer Profile")
-    st.write("**Name:** Nazrul Rana")
-    st.write("**WhatsApp:** +880164143400")
-    st.write("**Version:** 7.0 (Enterprise Edition)")
+    st.markdown("""
+    * **Name:** Nazrul Rana
+    * **WhatsApp:** +880164143400
+    * **Version:** 8.0 (Modern UI Edition)
+    """)
     
-    st.info("For any bug reports, feature requests, or custom software development, please contact via WhatsApp.")
+    st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
