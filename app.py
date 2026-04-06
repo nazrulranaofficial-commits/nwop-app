@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 import pytz
+import uuid  # 🌟 NEW: To fix the data mismatch bug
 from io import BytesIO
 from datetime import datetime, date, time as dt_time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -233,7 +234,6 @@ if not st.session_state.logged_in:
 if 'all_orders' not in st.session_state: st.session_state.all_orders = []
 if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages = []
 if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now(BD_TZ).strftime("%d/%m/%y")
-if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
 if 'product_list' not in st.session_state:
     st.session_state.product_list = ['Electronic Grinder', 'Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Check Manually']
 
@@ -400,7 +400,9 @@ def extract_order_details(msg_dict):
     address = re.sub(r'\s*,\s*', ', ', address) 
     address = address.strip(' ,-:;') 
 
+    # 🌟 NEW: Add Unique ID to each order to prevent widget state bugs 🌟
     return {
+        "id": str(uuid.uuid4()),
         "status": "valid", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"],
         "Name": name, "Phone Number": phone, "Address": address, "Product": product,
         "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False
@@ -410,7 +412,7 @@ def extract_order_details(msg_dict):
 st.markdown("<br>", unsafe_allow_html=True)
 col_logo, col_title, col_logout = st.columns([1.5, 6, 2])
 with col_logo:
-    if os.path.exists("logo.png"): st.image("logo.png", width=100)
+    if os.path.exists("logo.png"): st.image("logo.png", width=110)
 with col_title: 
     st.markdown("<h2 class='main-header-title'>NWOP Dashboard</h2>", unsafe_allow_html=True)
     st.markdown("<div class='welcome-text'>Welcome back, Nazrul! Here's your overview.</div>", unsafe_allow_html=True)
@@ -500,7 +502,6 @@ with tab_workspace:
                         if temp_orders:
                             st.session_state.all_orders = temp_orders 
                             st.session_state.sheet_date = "Time_Range_Export" if filter_type == "Time Range (Copy-Paste)" else target_date_str.replace('/', '-') if filter_type == "Specific Date" else f"Bulk_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"
-                            st.session_state.total_extracted_today += len(temp_orders)
                             
                             last_order = temp_orders[-1]
                             st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -656,7 +657,6 @@ with tab_workspace:
                             if temp_orders:
                                 st.session_state.all_orders = temp_orders
                                 st.session_state.sheet_date = f"Live_Scrape_{datetime.now(BD_TZ).strftime('%d-%m-%y_%H%M')}"
-                                st.session_state.total_extracted_today += len(temp_orders)
                                 
                                 last_order = temp_orders[-1]
                                 st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -696,10 +696,9 @@ with tab_workspace:
                     issues.append("Name looks like Address")
 
                 if str(row['Address']).strip() == "N/A" or not str(row['Address']).strip(): issues.append("Missing Address")
-                if row.get('is_duplicate', False): issues.append("⚠️ Duplicate Data (Check Time/Date)")
+                if row.get('is_duplicate', False): issues.append("⚠️ Duplicate Data")
                 
-                # Store the original index 'i' so we can anchor to it later
-                if issues: doubtful_orders.append({"index": i, "order": row, "issues": issues})
+                if issues: doubtful_orders.append({"id": row['id'], "order": row, "issues": issues})
             
             accuracy_score = round((passed_checks / total_checks) * 100, 1) if total_checks > 0 else 0
             
@@ -708,14 +707,14 @@ with tab_workspace:
             m1.metric("📦 Orders", len(st.session_state.all_orders))
             m2.metric("💰 Revenue", f"৳ {sum(int(o['Price']) for o in st.session_state.all_orders)}")
             m3.metric("🎯 Accuracy", f"{accuracy_score}%")
-            m4.metric("📈 Session", st.session_state.total_extracted_today)
+            m4.metric("🚫 Ignored", len(st.session_state.ignored_messages))
 
-            # 🌟 NEW JUMP-TO-FIX DOUBTFUL SECTION 🌟
+            # 🌟 JUMP-TO-FIX DOUBTFUL SECTION 🌟
             if doubtful_orders:
                 st.error(f"⚠️ Action Required: Found {len(doubtful_orders)} doubtful or duplicate entries!")
                 with st.expander("🚨 REVIEW DOUBTFUL ENTRIES", expanded=True):
                     for dob in doubtful_orders:
-                        idx = dob['index']
+                        o_id = dob['id']
                         issue_text = ', '.join(dob['issues'])
                         st.markdown(f"""
                             <div class="doubt-card">
@@ -724,7 +723,7 @@ with tab_workspace:
                                     <span style="color: gray; font-size:0.9rem;"><strong>Name:</strong> {dob['order']['Name']} | <strong>Phone:</strong> {dob['order']['Phone Number']}</span>
                                 </div>
                                 <div>
-                                    <a href="#order-{idx}" class="fix-btn">Fix 🔨</a>
+                                    <a href="#order-{o_id}" class="fix-btn">Fix 🔨</a>
                                 </div>
                             </div>
                         """, unsafe_allow_html=True)
@@ -736,6 +735,7 @@ with tab_workspace:
             with col_m2:
                 if st.button("➕ Add Manual Order", type="secondary"):
                     new_manual_order = {
+                        "id": str(uuid.uuid4()), # 🌟 Fixed Identity Generation
                         "Date": datetime.now(BD_TZ).strftime("%d/%m/%y"),
                         "Time": datetime.now(BD_TZ).strftime("%I:%M %p"),
                         "Name": "",
@@ -752,53 +752,58 @@ with tab_workspace:
                     st.rerun()
 
             for i, row in enumerate(st.session_state.all_orders):
+                if 'id' not in row: row['id'] = str(uuid.uuid4()) # Fallback for old sessions
+                o_id = row['id']
+                
                 dup_tag = " (⚠️ Duplicate)" if row.get('is_duplicate', False) else ""
                 man_tag = " (✍️ Manual)" if row.get('Note', '') == 'Manual Entry' else ""
                 
                 # 🌟 INVISIBLE ANCHOR LINK FOR JUMPING 🌟
-                st.markdown(f'<div id="order-{i}" style="position: relative; top: -60px;"></div>', unsafe_allow_html=True)
+                st.markdown(f'<div id="order-{o_id}" style="position: relative; top: -60px;"></div>', unsafe_allow_html=True)
                 
                 with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}{man_tag}", expanded=False):
                     col_rm1, col_rm2 = st.columns([5, 1])
                     with col_rm2:
-                        if st.button("🗑️ Remove", key=f"del_{i}", help="Delete this order"):
-                            st.session_state.all_orders.pop(i)
+                        if st.button("🗑️ Remove", key=f"del_{o_id}", help="Delete this order"):
+                            # 🌟 Safely filter out the removed order by ID
+                            st.session_state.all_orders = [o for o in st.session_state.all_orders if o['id'] != o_id]
                             st.rerun()
                             
                     c1, c2 = st.columns([1, 1])
                     with c1:
-                        new_name = st.text_input("👤 Name:", row['Name'], key=f"name_{i}")
-                        new_addr = st.text_input("🏠 Address:", row['Address'], key=f"addr_{i}")
-                        new_phone = st.text_input("📱 Phone:", row['Phone Number'], key=f"phone_{i}")
+                        # 🌟 Unique Keys prevent Identity Crisis
+                        new_name = st.text_input("👤 Name:", row['Name'], key=f"name_{o_id}")
+                        new_addr = st.text_input("🏠 Address:", row['Address'], key=f"addr_{o_id}")
+                        new_phone = st.text_input("📱 Phone:", row['Phone Number'], key=f"phone_{o_id}")
                         
                         st.session_state.all_orders[i]['Name'] = new_name
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
                         if row['Product'] not in st.session_state.product_list: st.session_state.product_list.append(row['Product'])
-                        new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{i}")
+                        new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{o_id}")
                         st.session_state.all_orders[i]['Product'] = new_prod
                         
-                        # 📝 EDITABLE NOTE FIELD
-                        st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{i}")
+                        st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{o_id}")
                         
                     with c2:
                         col_p, col_q = st.columns(2)
                         with col_p:
-                            st.session_state.all_orders[i]['Price'] = st.number_input("💰 Price (৳):", value=int(row['Price']), min_value=0, key=f"price_{i}")
+                            st.session_state.all_orders[i]['Price'] = st.number_input("💰 Price (৳):", value=int(row['Price']), min_value=0, key=f"price_{o_id}")
                         with col_q:
-                            st.session_state.all_orders[i]['Quantity'] = st.number_input("⚖️ Qty:", value=int(row['Quantity']), min_value=0, key=f"qty_{i}")
+                            st.session_state.all_orders[i]['Quantity'] = st.number_input("⚖️ Qty:", value=int(row['Quantity']), min_value=0, key=f"qty_{o_id}")
                             
                         status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked"]
                         current_idx = status_list.index(row['Approval']) if row['Approval'] in status_list else 0
-                        st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{i}")
+                        st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{o_id}")
                         st.markdown(f'''<a href="tel:{st.session_state.all_orders[i]['Phone Number']}" style="display:inline-block; text-align:center; width:100%; background: linear-gradient(135deg, #10B981, #059669); color:white; padding:10px 15px; border-radius:25px; margin-top:20px; font-weight:bold; box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3); text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
 
             st.markdown("---")
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
             csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
             
-            export_data = [{k:v for k,v in order.items() if k != 'is_duplicate'} for order in st.session_state.all_orders]
+            # Remove hidden ID before export
+            export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id']} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
             export_df.insert(0, 'SNO', range(1, 1 + len(export_df)))
             export_columns = ["SNO", "Date", "Time", "Name", "Phone Number", "Address", "Product", "Quantity", "Price", "Approval", "Note"]
@@ -978,11 +983,10 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v12.0 (Pro Navigation UI)")
+    st.markdown("**Version:** NWOP v12.5 (Bug Free Navigation Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
-        st.session_state.total_extracted_today = 0
         log_task("App memory completely wiped.")
         st.rerun()
 
@@ -1002,7 +1006,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 12.0 (Pro Navigation Edition)
+    * **Version:** 12.5 (Pro Navigation Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
