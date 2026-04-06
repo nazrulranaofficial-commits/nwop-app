@@ -502,7 +502,6 @@ with tab_workspace:
                         if temp_orders:
                             st.session_state.all_orders = temp_orders 
                             st.session_state.sheet_date = "Time_Range_Export" if filter_type == "Time Range (Copy-Paste)" else target_date_str.replace('/', '-') if filter_type == "Specific Date" else f"Bulk_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"
-                            st.session_state.total_extracted_today += len(temp_orders)
                             
                             last_order = temp_orders[-1]
                             st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -658,7 +657,6 @@ with tab_workspace:
                             if temp_orders:
                                 st.session_state.all_orders = temp_orders
                                 st.session_state.sheet_date = f"Live_Scrape_{datetime.now(BD_TZ).strftime('%d-%m-%y_%H%M')}"
-                                st.session_state.total_extracted_today += len(temp_orders)
                                 
                                 last_order = temp_orders[-1]
                                 st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -780,11 +778,9 @@ with tab_workspace:
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
-                        # Ensure current product is always listed
                         if row['Product'] not in st.session_state.product_list: 
                             st.session_state.product_list.append(row['Product'])
                             
-                        # 🌟 NEW CUSTOM PRODUCT LOGIC 🌟
                         extended_prod_list = st.session_state.product_list + ["➕ Add Custom Product"]
                         sel_prod = st.selectbox("📦 Item:", extended_prod_list, index=extended_prod_list.index(row['Product']), key=f"prod_sel_{o_id}")
                         
@@ -794,8 +790,6 @@ with tab_workspace:
                             new_prod = sel_prod
                             
                         st.session_state.all_orders[i]['Product'] = new_prod
-                        
-                        # Add new product to global list automatically
                         if new_prod and new_prod != "➕ Add Custom Product" and new_prod not in st.session_state.product_list:
                             st.session_state.product_list.append(new_prod)
                         
@@ -820,40 +814,54 @@ with tab_workspace:
             export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id']} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
             export_df.insert(0, 'SNO', range(1, 1 + len(export_df)))
-            export_columns = ["SNO", "Date", "Time", "Name", "Phone Number", "Address", "Product", "Quantity", "Price", "Approval", "Note"]
+            
+            # --- 🌟 CUSTOM CSV DATAFRAME CREATION 🌟 ---
+            csv_df = export_df.copy()
+            csv_df.rename(columns={"SNO": "Sl.", "Price": "price", "Approval": "approved"}, inplace=True)
+            csv_cols = ["Sl.", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
+            for c in csv_cols:
+                if c not in csv_df.columns:
+                    csv_df[c] = ""
+            csv_df = csv_df[csv_cols]
+            
+            export_columns = ["SNO", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
+            export_df.rename(columns={"Price": "price", "Approval": "approved"}, inplace=True)
             for col in export_columns:
                 if col not in export_df.columns: export_df[col] = ""
             export_df = export_df[export_columns]
-            
-            # --- EXCEL EXPORT ---
+
+            # --- EXCEL EXPORT (EXACT MAGENTA/PINK FORMAT) ---
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                export_df.to_excel(writer, index=False, sheet_name="Orders")
+                # Need to map specific names for exact match
+                excel_final_df = export_df.copy()
+                excel_final_df.rename(columns={"SNO": "Sl."}, inplace=True)
+                excel_final_df.to_excel(writer, index=False, sheet_name="Orders")
+                
                 workbook = writer.book
                 worksheet = writer.sheets['Orders']
                 
                 status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked"', allow_blank=True)
                 worksheet.add_data_validation(status_dv)
-                status_dv.add('J2:J10000') 
+                status_dv.add('H2:H10000') 
                 
                 pd.DataFrame({"Date": [st.session_state.sheet_date], "Total": [len(export_df)]}).to_excel(writer, index=False, sheet_name="Summary")
-                for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                 
-                prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
-                worksheet.add_data_validation(prod_dv)
-                prod_dv.add('G2:G10000') 
+                # 🌟 EXACT PINK/MAGENTA FORMATTING LIKE SCREENSHOT 🌟
+                header_fill = PatternFill(start_color="FF00FF", end_color="FF00FF", fill_type="solid") # Magenta/Pink
+                for cell in worksheet[1]: 
+                    cell.fill = header_fill
+                    cell.font = Font(bold=True, color="000000", size=12)
+                    cell.alignment = Alignment(horizontal="center", vertical="center")
+                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                 
-                header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
-                sno_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
-                for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                 for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
                     for cell in row:
-                        cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
-                        if cell.column == 1: cell.fill, cell.font, cell.alignment = sno_fill, Font(bold=True, color="FFFFFF"), Alignment(horizontal="center", vertical="center")
+                        cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center", horizontal="center")
 
-                worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
-                worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
-                worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
+                worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
+                worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
+                worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
                 
                 for col in worksheet.columns:
                     max_len = 0
@@ -875,9 +883,10 @@ with tab_workspace:
                     on_click=lambda: log_task(f"Downloaded Excel file: {filename}")
                 )
             
-            # --- CSV (GOOGLE SHEETS) EXPORT ---
+            # --- CSV (GOOGLE SHEETS) EXPORT (WITH utf-8-sig FIX) ---
             with col_d2:
-                csv_data = export_df.to_csv(index=False).encode('utf-8')
+                # encode with 'utf-8-sig' to prevent Bangla text corruption in Microsoft Excel
+                csv_data = csv_df.to_csv(index=False).encode('utf-8-sig') 
                 st.download_button(
                     label="📊 Download CSV (For Google Sheets)",
                     data=csv_data,
@@ -919,36 +928,44 @@ with tab_merge:
                 merged_df = merged_df.drop_duplicates(subset=['Phone Number'], keep='last')
                 merged_df = merged_df.drop(columns=['sort_dt'])
                 
-                merged_df['SNO'] = range(1, len(merged_df) + 1)
+                merged_df['Sl.'] = range(1, len(merged_df) + 1)
+                
+                # --- CUSTOM CSV DATAFRAME CREATION FOR MERGE ---
+                csv_merged_df = merged_df.copy()
+                if 'SNO' in csv_merged_df.columns: csv_merged_df.drop(columns=['SNO'], inplace=True)
+                csv_cols = ["Sl.", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
+                for c in csv_cols:
+                    if c not in csv_merged_df.columns:
+                        csv_merged_df[c] = ""
+                csv_merged_df = csv_merged_df[csv_cols]
                 
                 output_merge = BytesIO()
                 with pd.ExcelWriter(output_merge, engine='openpyxl') as writer:
-                    merged_df.to_excel(writer, index=False, sheet_name="Orders")
+                    csv_merged_df.to_excel(writer, index=False, sheet_name="Orders")
                     workbook = writer.book
                     worksheet = writer.sheets['Orders']
                     
                     status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked"', allow_blank=True)
                     worksheet.add_data_validation(status_dv)
-                    status_dv.add('J2:J10000') 
+                    status_dv.add('H2:H10000') 
                     
                     pd.DataFrame({"Date Tag": [f"Merged_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"], "Total Orders": [len(merged_df)]}).to_excel(writer, index=False, sheet_name="Summary")
-                    for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                     
-                    prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
-                    worksheet.add_data_validation(prod_dv)
-                    prod_dv.add('G2:G10000') 
-                    
-                    header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
-                    sno_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
-                    for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                    # 🌟 EXACT PINK/MAGENTA FORMATTING LIKE SCREENSHOT 🌟
+                    header_fill = PatternFill(start_color="FF00FF", end_color="FF00FF", fill_type="solid")
+                    for cell in worksheet[1]: 
+                        cell.fill = header_fill
+                        cell.font = Font(bold=True, color="000000", size=12)
+                        cell.alignment = Alignment(horizontal="center", vertical="center")
+                        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                        
                     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
                         for cell in row:
-                            cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
-                            if cell.column == 1: cell.fill, cell.font, cell.alignment = sno_fill, Font(bold=True, color="FFFFFF"), Alignment(horizontal="center", vertical="center")
+                            cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center", horizontal="center")
 
-                    worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
-                    worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
-                    worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
+                    worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
+                    worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
+                    worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
                     
                     for col in worksheet.columns:
                         max_len = 0
@@ -971,9 +988,10 @@ with tab_merge:
                         on_click=lambda: log_task(f"Merged {len(uploaded_excels)} files into 1 Master Excel File.")
                     )
                 with col_md2:
+                    # utf-8-sig for proper bangla encoding
                     st.download_button(
                         label="📊 Download CSV (For Google Sheets)",
-                        data=merged_df.to_csv(index=False).encode('utf-8'),
+                        data=csv_merged_df.to_csv(index=False).encode('utf-8-sig'),
                         file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv",
                         mime="text/csv",
                         type="secondary",
@@ -997,7 +1015,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v13.0 (Custom Product Edition)")
+    st.markdown("**Version:** NWOP v14.0 (Exact Format Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -1021,7 +1039,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 13.0 (Custom Product Edition)
+    * **Version:** 14.0 (Exact Format Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
