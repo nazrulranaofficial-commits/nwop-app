@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import pytz
-import uuid  # 🌟 NEW: To fix the data mismatch bug
+import uuid  
 from io import BytesIO
 from datetime import datetime, date, time as dt_time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -234,6 +234,7 @@ if not st.session_state.logged_in:
 if 'all_orders' not in st.session_state: st.session_state.all_orders = []
 if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages = []
 if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now(BD_TZ).strftime("%d/%m/%y")
+if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
 if 'product_list' not in st.session_state:
     st.session_state.product_list = ['Electronic Grinder', 'Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Check Manually']
 
@@ -400,7 +401,6 @@ def extract_order_details(msg_dict):
     address = re.sub(r'\s*,\s*', ', ', address) 
     address = address.strip(' ,-:;') 
 
-    # 🌟 NEW: Add Unique ID to each order to prevent widget state bugs 🌟
     return {
         "id": str(uuid.uuid4()),
         "status": "valid", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"],
@@ -502,6 +502,7 @@ with tab_workspace:
                         if temp_orders:
                             st.session_state.all_orders = temp_orders 
                             st.session_state.sheet_date = "Time_Range_Export" if filter_type == "Time Range (Copy-Paste)" else target_date_str.replace('/', '-') if filter_type == "Specific Date" else f"Bulk_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"
+                            st.session_state.total_extracted_today += len(temp_orders)
                             
                             last_order = temp_orders[-1]
                             st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -657,6 +658,7 @@ with tab_workspace:
                             if temp_orders:
                                 st.session_state.all_orders = temp_orders
                                 st.session_state.sheet_date = f"Live_Scrape_{datetime.now(BD_TZ).strftime('%d-%m-%y_%H%M')}"
+                                st.session_state.total_extracted_today += len(temp_orders)
                                 
                                 last_order = temp_orders[-1]
                                 st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -735,7 +737,7 @@ with tab_workspace:
             with col_m2:
                 if st.button("➕ Add Manual Order", type="secondary"):
                     new_manual_order = {
-                        "id": str(uuid.uuid4()), # 🌟 Fixed Identity Generation
+                        "id": str(uuid.uuid4()),
                         "Date": datetime.now(BD_TZ).strftime("%d/%m/%y"),
                         "Time": datetime.now(BD_TZ).strftime("%I:%M %p"),
                         "Name": "",
@@ -752,7 +754,7 @@ with tab_workspace:
                     st.rerun()
 
             for i, row in enumerate(st.session_state.all_orders):
-                if 'id' not in row: row['id'] = str(uuid.uuid4()) # Fallback for old sessions
+                if 'id' not in row: row['id'] = str(uuid.uuid4())
                 o_id = row['id']
                 
                 dup_tag = " (⚠️ Duplicate)" if row.get('is_duplicate', False) else ""
@@ -765,13 +767,11 @@ with tab_workspace:
                     col_rm1, col_rm2 = st.columns([5, 1])
                     with col_rm2:
                         if st.button("🗑️ Remove", key=f"del_{o_id}", help="Delete this order"):
-                            # 🌟 Safely filter out the removed order by ID
                             st.session_state.all_orders = [o for o in st.session_state.all_orders if o['id'] != o_id]
                             st.rerun()
                             
                     c1, c2 = st.columns([1, 1])
                     with c1:
-                        # 🌟 Unique Keys prevent Identity Crisis
                         new_name = st.text_input("👤 Name:", row['Name'], key=f"name_{o_id}")
                         new_addr = st.text_input("🏠 Address:", row['Address'], key=f"addr_{o_id}")
                         new_phone = st.text_input("📱 Phone:", row['Phone Number'], key=f"phone_{o_id}")
@@ -780,9 +780,24 @@ with tab_workspace:
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
-                        if row['Product'] not in st.session_state.product_list: st.session_state.product_list.append(row['Product'])
-                        new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{o_id}")
+                        # Ensure current product is always listed
+                        if row['Product'] not in st.session_state.product_list: 
+                            st.session_state.product_list.append(row['Product'])
+                            
+                        # 🌟 NEW CUSTOM PRODUCT LOGIC 🌟
+                        extended_prod_list = st.session_state.product_list + ["➕ Add Custom Product"]
+                        sel_prod = st.selectbox("📦 Item:", extended_prod_list, index=extended_prod_list.index(row['Product']), key=f"prod_sel_{o_id}")
+                        
+                        if sel_prod == "➕ Add Custom Product":
+                            new_prod = st.text_input("✍️ Type Custom Product Name:", key=f"prod_txt_{o_id}")
+                        else:
+                            new_prod = sel_prod
+                            
                         st.session_state.all_orders[i]['Product'] = new_prod
+                        
+                        # Add new product to global list automatically
+                        if new_prod and new_prod != "➕ Add Custom Product" and new_prod not in st.session_state.product_list:
+                            st.session_state.product_list.append(new_prod)
                         
                         st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{o_id}")
                         
@@ -802,7 +817,6 @@ with tab_workspace:
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
             csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
             
-            # Remove hidden ID before export
             export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id']} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
             export_df.insert(0, 'SNO', range(1, 1 + len(export_df)))
@@ -983,10 +997,11 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v12.5 (Bug Free Navigation Edition)")
+    st.markdown("**Version:** NWOP v13.0 (Custom Product Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
+        st.session_state.total_extracted_today = 0
         log_task("App memory completely wiped.")
         st.rerun()
 
@@ -1006,7 +1021,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 12.5 (Pro Navigation Edition)
+    * **Version:** 13.0 (Custom Product Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
