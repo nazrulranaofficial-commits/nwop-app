@@ -780,11 +780,9 @@ with tab_workspace:
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
-                        # Ensure current product is always listed
                         if row['Product'] not in st.session_state.product_list: 
                             st.session_state.product_list.append(row['Product'])
                             
-                        # 🌟 NEW CUSTOM PRODUCT LOGIC 🌟
                         extended_prod_list = st.session_state.product_list + ["➕ Add Custom Product"]
                         sel_prod = st.selectbox("📦 Item:", extended_prod_list, index=extended_prod_list.index(row['Product']), key=f"prod_sel_{o_id}")
                         
@@ -794,8 +792,6 @@ with tab_workspace:
                             new_prod = sel_prod
                             
                         st.session_state.all_orders[i]['Product'] = new_prod
-                        
-                        # Add new product to global list automatically
                         if new_prod and new_prod != "➕ Add Custom Product" and new_prod not in st.session_state.product_list:
                             st.session_state.product_list.append(new_prod)
                         
@@ -824,6 +820,15 @@ with tab_workspace:
             for col in export_columns:
                 if col not in export_df.columns: export_df[col] = ""
             export_df = export_df[export_columns]
+            
+            # --- CUSTOM CSV DATAFRAME CREATION ---
+            csv_df = export_df.copy()
+            csv_df.rename(columns={"SNO": "Sl.", "Price": "price", "Approval": "approved"}, inplace=True)
+            csv_cols = ["Sl.", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
+            for c in csv_cols:
+                if c not in csv_df.columns:
+                    csv_df[c] = ""
+            csv_df = csv_df[csv_cols]
             
             # --- EXCEL EXPORT ---
             output = BytesIO()
@@ -877,7 +882,7 @@ with tab_workspace:
             
             # --- CSV (GOOGLE SHEETS) EXPORT ---
             with col_d2:
-                csv_data = export_df.to_csv(index=False).encode('utf-8')
+                csv_data = csv_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📊 Download CSV (For Google Sheets)",
                     data=csv_data,
@@ -920,6 +925,15 @@ with tab_merge:
                 merged_df = merged_df.drop(columns=['sort_dt'])
                 
                 merged_df['SNO'] = range(1, len(merged_df) + 1)
+                
+                # --- CUSTOM CSV DATAFRAME CREATION FOR MERGE ---
+                csv_merged_df = merged_df.copy()
+                csv_merged_df.rename(columns={"SNO": "Sl.", "Price": "price", "Approval": "approved"}, inplace=True)
+                csv_cols = ["Sl.", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
+                for c in csv_cols:
+                    if c not in csv_merged_df.columns:
+                        csv_merged_df[c] = ""
+                csv_merged_df = csv_merged_df[csv_cols]
                 
                 output_merge = BytesIO()
                 with pd.ExcelWriter(output_merge, engine='openpyxl') as writer:
@@ -973,7 +987,7 @@ with tab_merge:
                 with col_md2:
                     st.download_button(
                         label="📊 Download CSV (For Google Sheets)",
-                        data=merged_df.to_csv(index=False).encode('utf-8'),
+                        data=csv_merged_df.to_csv(index=False).encode('utf-8'),
                         file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv",
                         mime="text/csv",
                         type="secondary",
@@ -997,7 +1011,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v13.0 (Custom Product Edition)")
+    st.markdown("**Version:** NWOP v13.5 (Custom CSV Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -1021,7 +1035,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 13.0 (Custom Product Edition)
+    * **Version:** 13.5 (Custom CSV Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
