@@ -247,6 +247,9 @@ if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages
 if 'total_scanned' not in st.session_state: st.session_state.total_scanned = 0
 if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now(BD_TZ).strftime("%d/%m/%y")
 if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
+# 🌟 HOTFIX: RE-ADDED MISSING PRODUCT LIST INITIALIZATION 🌟
+if 'product_list' not in st.session_state:
+    st.session_state.product_list = ['Electronic Grinder', 'Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Check Manually']
 
 def bn_to_en_digits(text):
     return text.translate(str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789'))
@@ -332,7 +335,6 @@ def extract_order_details(msg_dict):
     quantity = int(qty_match.group(1)) if qty_match else 1
     if qty_match: body_en = body_en.replace(qty_match.group(0), ' ')
 
-    # 🌟 ALWAYS DEFAULT TO ELECTRIC BLENDER IF GRINDER/BLENDER IS FOUND 🌟
     product = "Electric Blender"
     if not re.search(r'grind|grainder|blender', body_en, re.IGNORECASE):
         pass 
@@ -724,7 +726,6 @@ with tab_workspace:
                 if avg_price > 0 and pr_val > 0 and pr_val < (avg_price * 0.5):
                     issues.append(f"📉 Low Price Alert (Avg is ৳{int(avg_price)})")
                 
-                # 🌟 HIGH QUANTITY ALERT 🌟
                 if int(row['Quantity']) > 10:
                     issues.append("⚠️ High Qty (>10)")
                 
@@ -822,7 +823,6 @@ with tab_workspace:
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
-                        # 🌟 WRITEABLE PRODUCT NAME 🌟
                         new_prod = st.text_input("📦 Item:", row['Product'], key=f"prod_{o_id}")
                         st.session_state.all_orders[i]['Product'] = new_prod
                         
@@ -852,7 +852,6 @@ with tab_workspace:
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
             csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
             
-            # 🌟 MODIFIED EXPORT ORDER (Date & Time at Rightmost) 🌟
             export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id', 'RawText', 'Expander_Title']} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
             
@@ -869,7 +868,6 @@ with tab_workspace:
                 if c not in csv_df.columns: csv_df[c] = ""
             csv_df = csv_df[csv_columns]
             
-            # 🌟 EXCEL EXPORT COLUMNS (Date and Time Moved to End) 🌟
             export_columns = ["SNO", "Name", "Phone Number", "Address", "Quantity", "Product", "Price", "Approval", "Note", "Date", "Time"]
             for col in export_columns:
                 if col not in export_df.columns: export_df[col] = ""
@@ -881,7 +879,6 @@ with tab_workspace:
                 workbook = writer.book
                 worksheet = writer.sheets['Orders']
                 
-                # Update DataValidation to new columns: Approval is now 'H'
                 status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked"', allow_blank=True)
                 worksheet.add_data_validation(status_dv)
                 status_dv.add('H2:H10000') 
@@ -889,19 +886,17 @@ with tab_workspace:
                 pd.DataFrame({"Date": [st.session_state.sheet_date], "Total": [len(export_df)]}).to_excel(writer, index=False, sheet_name="Summary")
                 for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                 
-                # Product is now 'F'
                 prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
                 worksheet.add_data_validation(prod_dv)
                 prod_dv.add('F2:F10000') 
                 
                 header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
                 sno_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
-                green_row_fill = PatternFill(start_color="c6efce", end_color="c6efce", fill_type="solid")
+                green_row_fill = PatternFill(start_color="c6efce", end_color="c6efce", fill_type="solid") 
                 
                 for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                 
                 for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
-                    # Product is now at index 5 (Column F)
                     prod_val = str(row[5].value).strip().lower()
                     is_not_blender = (prod_val != "electric blender")
                     
@@ -912,7 +907,6 @@ with tab_workspace:
                         elif is_not_blender:
                             cell.fill = green_row_fill
 
-                # Conditional formatting rules for Approval (Column H)
                 worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
                 worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
                 worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
@@ -990,14 +984,12 @@ with tab_merge:
                 merged_df = merged_df.drop_duplicates(subset=['Phone Number'], keep='last')
                 merged_df = merged_df.drop(columns=['sort_dt'])
                 
-                # 🌟 SORTING MERGED FILE: QUANTITY > 1 GOES TO BOTTOM 🌟
                 merged_df['Quantity'] = pd.to_numeric(merged_df['Quantity'], errors='coerce').fillna(1).astype(int)
                 merged_df['is_multi'] = merged_df['Quantity'] > 1
                 merged_df = merged_df.sort_values(by=['is_multi']).drop(columns=['is_multi'])
                 
                 merged_df['SNO'] = range(1, len(merged_df) + 1)
                 
-                # 🌟 REORDER EXCEL COLUMNS FOR MERGE EXPORT 🌟
                 export_columns = ["SNO", "Name", "Phone Number", "Address", "Quantity", "Product", "Price", "Approval", "Note", "Date", "Time"]
                 excel_df = merged_df.copy()
                 for c in export_columns:
@@ -1012,14 +1004,14 @@ with tab_merge:
                     
                     status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked"', allow_blank=True)
                     worksheet.add_data_validation(status_dv)
-                    status_dv.add('H2:H10000') # Approval is now H
+                    status_dv.add('H2:H10000') 
                     
                     pd.DataFrame({"Date Tag": [f"Merged_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"], "Total Orders": [len(excel_df)]}).to_excel(writer, index=False, sheet_name="Summary")
                     for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                     
                     prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
                     worksheet.add_data_validation(prod_dv)
-                    prod_dv.add('F2:F10000') # Product is now F
+                    prod_dv.add('F2:F10000') 
                     
                     header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
                     sno_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
@@ -1027,7 +1019,7 @@ with tab_merge:
                     
                     for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
-                        prod_val = str(row[5].value).strip().lower() # Product is now at index 5 (Column F)
+                        prod_val = str(row[5].value).strip().lower() 
                         is_not_blender = (prod_val != "electric blender")
                         
                         for cell in row:
@@ -1050,7 +1042,6 @@ with tab_merge:
                         
                 st.success(f"✅ Successfully combined {len(uploaded_excels)} files into {len(excel_df)} unique sorted orders!")
                 
-                # 🌟 CSV EXPORT FORMAT (MERGED) 🌟
                 csv_df = merged_df.rename(columns={'SNO': 'Sl.', 'Price': 'price', 'Approval': 'approved'})
                 if 'Note' not in csv_df.columns: csv_df['Note'] = ""
                 csv_columns = ['Sl.', 'Name', 'Phone Number', 'Address', 'Quantity', 'Product', 'price', 'approved', 'Note', 'Date', 'Time']
@@ -1096,7 +1087,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v16.0 (Perfect Layout Edition)")
+    st.markdown("**Version:** NWOP v16.1 (Hotfix Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -1121,7 +1112,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 16.0 (Perfect Layout Edition)
+    * **Version:** 16.1 (Hotfix Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
