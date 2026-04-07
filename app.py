@@ -6,7 +6,7 @@ import hashlib
 import json
 import os
 import pytz
-import uuid  
+import uuid
 from io import BytesIO
 from datetime import datetime, date, time as dt_time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
@@ -160,6 +160,17 @@ st.markdown("""
         margin-top: 20px;
     }
 
+    /* Raw Message Box */
+    .raw-msg-box {
+        background-color: rgba(16, 185, 129, 0.05);
+        padding: 15px;
+        border-radius: 12px;
+        border: 1px dashed rgba(16, 185, 129, 0.3);
+        height: 100%;
+        font-size: 0.95rem;
+        line-height: 1.5;
+    }
+
     @media (max-width: 768px) {
         .main-header-title { font-size: 1.8rem; margin-top: 5px; text-align: center; }
         .welcome-text { text-align: center; }
@@ -233,6 +244,7 @@ if not st.session_state.logged_in:
 # --- SESSION STATE (MEMORY) ---
 if 'all_orders' not in st.session_state: st.session_state.all_orders = []
 if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages = []
+if 'total_scanned' not in st.session_state: st.session_state.total_scanned = 0
 if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.now(BD_TZ).strftime("%d/%m/%y")
 if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
 if 'product_list' not in st.session_state:
@@ -281,6 +293,7 @@ def parse_copy_paste_time(pasted_str):
 # 🌟 SMART EXTRACTION ENGINE 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
+    raw_text = text  # Save raw text for side-by-side validation
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
     body = parts[1] if len(parts) > 1 else text
     body_en = bn_to_en_digits(body)
@@ -405,7 +418,8 @@ def extract_order_details(msg_dict):
         "id": str(uuid.uuid4()),
         "status": "valid", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"],
         "Name": name, "Phone Number": phone, "Address": address, "Product": product,
-        "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False
+        "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False,
+        "RawText": raw_text # 🌟 Added for Side-by-Side validation
     }
 
 # --- APP LAYOUT HEADER ---
@@ -479,6 +493,7 @@ with tab_workspace:
                             elif filter_type == "Time Range (Copy-Paste)" and start_dt and end_dt and msg["msg_dt"]:
                                 if start_dt <= msg["msg_dt"] <= end_dt: filtered_messages.append(msg)
                         
+                        st.session_state.total_scanned = len(filtered_messages) # 🌟 Save Total Scanned
                         temp_orders, temp_ignored = [], []
                         phone_counts = {}
                         
@@ -502,6 +517,7 @@ with tab_workspace:
                         if temp_orders:
                             st.session_state.all_orders = temp_orders 
                             st.session_state.sheet_date = "Time_Range_Export" if filter_type == "Time Range (Copy-Paste)" else target_date_str.replace('/', '-') if filter_type == "Specific Date" else f"Bulk_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"
+                            st.session_state.total_extracted_today += len(temp_orders)
                             
                             last_order = temp_orders[-1]
                             st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -632,7 +648,8 @@ with tab_workspace:
                                             filtered_messages.append({"date_obj": dt_obj, "date_str": date_str, "time_str": time_str, "msg_dt": msg_dt, "text": f"[{date_str}, {time_str}] {sender} {msg_text}"})
                                 except: pass
                             driver.quit()
-
+                            
+                            st.session_state.total_scanned = len(filtered_messages) # 🌟 Save Total Scanned
                             temp_orders, temp_ignored = [], []
                             phone_counts = {}
                             
@@ -657,6 +674,7 @@ with tab_workspace:
                             if temp_orders:
                                 st.session_state.all_orders = temp_orders
                                 st.session_state.sheet_date = f"Live_Scrape_{datetime.now(BD_TZ).strftime('%d-%m-%y_%H%M')}"
+                                st.session_state.total_extracted_today += len(temp_orders)
                                 
                                 last_order = temp_orders[-1]
                                 st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
@@ -673,15 +691,42 @@ with tab_workspace:
 
     # --- DASHBOARD UI ---
     if st.session_state.all_orders or st.session_state.ignored_messages:
+        
+        # 🌟 SMART SUSPECT FILTER 🌟
+        suspect_keywords = ['taka', 'tk', 'টাকা', '/-', 'pice', 'pcs', 'পিস', 'blender', 'grinder', 'order', 'অর্ডার', 'thana', 'zilla', 'জেলা', 'থানা', 'গ্রাম']
+        suspected_msgs, system_junk = [], []
+        
+        for ig in st.session_state.ignored_messages:
+            text_lower = ig['Text'].lower()
+            if any(kw in text_lower for kw in suspect_keywords) and len(text_lower) > 15:
+                suspected_msgs.append(ig)
+            else:
+                system_junk.append(ig)
+        
+        # 🌟 RECONCILIATION SUMMARY 🌟
+        st.markdown("<br><h4 style='text-align:center; color:gray;'>📊 Data Reconciliation Report</h4>", unsafe_allow_html=True)
+        col_r1, col_r2, col_r3, col_r4 = st.columns(4)
+        col_r1.metric("🔍 Total Scanned", st.session_state.total_scanned)
+        col_r2.metric("📦 Valid Orders", len(st.session_state.all_orders))
+        col_r3.metric("🚨 Suspects", len(suspected_msgs))
+        col_r4.metric("🗑️ System/Junk", len(system_junk))
+        st.markdown("---")
+
         if st.session_state.all_orders:
+            df = pd.DataFrame(st.session_state.all_orders)
             doubtful_orders = []
             passed_checks = 0
             total_checks = len(st.session_state.all_orders) * 3
             
+            # 🌟 AVERAGE PRICE CALCULATION FOR ANOMALY DETECTION 🌟
+            valid_prices = df[df['Price'].astype(int) > 0]['Price'].astype(int)
+            avg_price = valid_prices.mean() if not valid_prices.empty else 0
+            
             for i, row in enumerate(st.session_state.all_orders):
                 issues = []
                 p_check = re.match(r'^01[3-9]\d{8}$', str(row['Phone Number']))
-                pr_check = int(row['Price']) > 0
+                pr_val = int(row['Price'])
+                pr_check = pr_val > 0
                 q_check = int(row['Quantity']) > 0
                 
                 if p_check: passed_checks += 1
@@ -690,6 +735,10 @@ with tab_workspace:
                 else: issues.append("Missing Price")
                 if q_check: passed_checks += 1
                 else: issues.append("Invalid Quantity")
+                
+                # 🌟 PRICE ANOMALY DETECTION 🌟
+                if avg_price > 0 and pr_val > 0 and pr_val < (avg_price * 0.5):
+                    issues.append(f"📉 Low Price Alert (Avg is ৳{int(avg_price)})")
                 
                 if str(row['Name']).strip() == "N/A" or not str(row['Name']).strip(): issues.append("Missing Name")
                 elif any(h in str(row['Name']).lower() for h in ['বাড়ি', 'বাড়ি', 'থানা', 'জেলা', 'রোড', 'road', 'গ্রাম', 'house']):
@@ -707,7 +756,7 @@ with tab_workspace:
             m1.metric("📦 Orders", len(st.session_state.all_orders))
             m2.metric("💰 Revenue", f"৳ {sum(int(o['Price']) for o in st.session_state.all_orders)}")
             m3.metric("🎯 Accuracy", f"{accuracy_score}%")
-            m4.metric("🚫 Ignored", len(st.session_state.ignored_messages))
+            m4.metric("📈 Session Total", st.session_state.total_extracted_today)
 
             # 🌟 JUMP-TO-FIX DOUBTFUL SECTION 🌟
             if doubtful_orders:
@@ -735,7 +784,7 @@ with tab_workspace:
             with col_m2:
                 if st.button("➕ Add Manual Order", type="secondary"):
                     new_manual_order = {
-                        "id": str(uuid.uuid4()),
+                        "id": str(uuid.uuid4()), 
                         "Date": datetime.now(BD_TZ).strftime("%d/%m/%y"),
                         "Time": datetime.now(BD_TZ).strftime("%I:%M %p"),
                         "Name": "",
@@ -746,7 +795,8 @@ with tab_workspace:
                         "Price": 0,
                         "Approval": "Pending",
                         "Note": "Manual Entry",
-                        "is_duplicate": False
+                        "is_duplicate": False,
+                        "RawText": "✍️ This order was added manually."
                     }
                     st.session_state.all_orders.append(new_manual_order)
                     st.rerun()
@@ -758,7 +808,6 @@ with tab_workspace:
                 dup_tag = " (⚠️ Duplicate)" if row.get('is_duplicate', False) else ""
                 man_tag = " (✍️ Manual)" if row.get('Note', '') == 'Manual Entry' else ""
                 
-                # 🌟 INVISIBLE ANCHOR LINK FOR JUMPING 🌟
                 st.markdown(f'<div id="order-{o_id}" style="position: relative; top: -60px;"></div>', unsafe_allow_html=True)
                 
                 with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}{man_tag}", expanded=False):
@@ -768,8 +817,14 @@ with tab_workspace:
                             st.session_state.all_orders = [o for o in st.session_state.all_orders if o['id'] != o_id]
                             st.rerun()
                             
-                    c1, c2 = st.columns([1, 1])
-                    with c1:
+                    # 🌟 SIDE-BY-SIDE VALIDATION UI 🌟
+                    col_raw, col_edit = st.columns([1, 1.5])
+                    
+                    with col_raw:
+                        clean_raw = row.get('RawText', 'N/A').replace('\n', '<br>')
+                        st.markdown(f"<div class='raw-msg-box'><strong>💬 Original Raw Message:</strong><br><br>{clean_raw}</div>", unsafe_allow_html=True)
+                        
+                    with col_edit:
                         new_name = st.text_input("👤 Name:", row['Name'], key=f"name_{o_id}")
                         new_addr = st.text_input("🏠 Address:", row['Address'], key=f"addr_{o_id}")
                         new_phone = st.text_input("📱 Phone:", row['Phone Number'], key=f"phone_{o_id}")
@@ -778,24 +833,12 @@ with tab_workspace:
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
                         
-                        if row['Product'] not in st.session_state.product_list: 
-                            st.session_state.product_list.append(row['Product'])
-                            
-                        extended_prod_list = st.session_state.product_list + ["➕ Add Custom Product"]
-                        sel_prod = st.selectbox("📦 Item:", extended_prod_list, index=extended_prod_list.index(row['Product']), key=f"prod_sel_{o_id}")
-                        
-                        if sel_prod == "➕ Add Custom Product":
-                            new_prod = st.text_input("✍️ Type Custom Product Name:", key=f"prod_txt_{o_id}")
-                        else:
-                            new_prod = sel_prod
-                            
+                        if row['Product'] not in st.session_state.product_list: st.session_state.product_list.append(row['Product'])
+                        new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{o_id}")
                         st.session_state.all_orders[i]['Product'] = new_prod
-                        if new_prod and new_prod != "➕ Add Custom Product" and new_prod not in st.session_state.product_list:
-                            st.session_state.product_list.append(new_prod)
                         
                         st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{o_id}")
                         
-                    with c2:
                         col_p, col_q = st.columns(2)
                         with col_p:
                             st.session_state.all_orders[i]['Price'] = st.number_input("💰 Price (৳):", value=int(row['Price']), min_value=0, key=f"price_{o_id}")
@@ -805,63 +848,51 @@ with tab_workspace:
                         status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked"]
                         current_idx = status_list.index(row['Approval']) if row['Approval'] in status_list else 0
                         st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{o_id}")
+                        
                         st.markdown(f'''<a href="tel:{st.session_state.all_orders[i]['Phone Number']}" style="display:inline-block; text-align:center; width:100%; background: linear-gradient(135deg, #10B981, #059669); color:white; padding:10px 15px; border-radius:25px; margin-top:20px; font-weight:bold; box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3); text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
 
             st.markdown("---")
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
             csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
             
-            export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id']} for order in st.session_state.all_orders]
+            # Export data without internal keys
+            export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id', 'RawText']} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
             export_df.insert(0, 'SNO', range(1, 1 + len(export_df)))
-            
-            # --- 🌟 CUSTOM CSV DATAFRAME CREATION 🌟 ---
-            csv_df = export_df.copy()
-            csv_df.rename(columns={"SNO": "Sl.", "Price": "price", "Approval": "approved"}, inplace=True)
-            csv_cols = ["Sl.", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
-            for c in csv_cols:
-                if c not in csv_df.columns:
-                    csv_df[c] = ""
-            csv_df = csv_df[csv_cols]
-            
-            export_columns = ["SNO", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
-            export_df.rename(columns={"Price": "price", "Approval": "approved"}, inplace=True)
+            export_columns = ["SNO", "Date", "Time", "Name", "Phone Number", "Address", "Product", "Quantity", "Price", "Approval", "Note"]
             for col in export_columns:
                 if col not in export_df.columns: export_df[col] = ""
             export_df = export_df[export_columns]
-
-            # --- EXCEL EXPORT (EXACT MAGENTA/PINK FORMAT) ---
+            
+            # --- EXCEL EXPORT ---
             output = BytesIO()
             with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                # Need to map specific names for exact match
-                excel_final_df = export_df.copy()
-                excel_final_df.rename(columns={"SNO": "Sl."}, inplace=True)
-                excel_final_df.to_excel(writer, index=False, sheet_name="Orders")
-                
+                export_df.to_excel(writer, index=False, sheet_name="Orders")
                 workbook = writer.book
                 worksheet = writer.sheets['Orders']
                 
                 status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked"', allow_blank=True)
                 worksheet.add_data_validation(status_dv)
-                status_dv.add('H2:H10000') 
+                status_dv.add('J2:J10000') 
                 
                 pd.DataFrame({"Date": [st.session_state.sheet_date], "Total": [len(export_df)]}).to_excel(writer, index=False, sheet_name="Summary")
+                for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                 
-                # 🌟 EXACT PINK/MAGENTA FORMATTING LIKE SCREENSHOT 🌟
-                header_fill = PatternFill(start_color="FF00FF", end_color="FF00FF", fill_type="solid") # Magenta/Pink
-                for cell in worksheet[1]: 
-                    cell.fill = header_fill
-                    cell.font = Font(bold=True, color="000000", size=12)
-                    cell.alignment = Alignment(horizontal="center", vertical="center")
-                    cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+                prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
+                worksheet.add_data_validation(prod_dv)
+                prod_dv.add('G2:G10000') 
                 
+                header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
+                sno_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+                for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                 for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
                     for cell in row:
-                        cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center", horizontal="center")
+                        cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
+                        if cell.column == 1: cell.fill, cell.font, cell.alignment = sno_fill, Font(bold=True, color="FFFFFF"), Alignment(horizontal="center", vertical="center")
 
-                worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
-                worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
-                worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
+                worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
+                worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
+                worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
                 
                 for col in worksheet.columns:
                     max_len = 0
@@ -883,10 +914,9 @@ with tab_workspace:
                     on_click=lambda: log_task(f"Downloaded Excel file: {filename}")
                 )
             
-            # --- CSV (GOOGLE SHEETS) EXPORT (WITH utf-8-sig FIX) ---
+            # --- CSV (GOOGLE SHEETS) EXPORT ---
             with col_d2:
-                # encode with 'utf-8-sig' to prevent Bangla text corruption in Microsoft Excel
-                csv_data = csv_df.to_csv(index=False).encode('utf-8-sig') 
+                csv_data = export_df.to_csv(index=False).encode('utf-8')
                 st.download_button(
                     label="📊 Download CSV (For Google Sheets)",
                     data=csv_data,
@@ -897,12 +927,24 @@ with tab_workspace:
                     on_click=lambda: log_task(f"Downloaded CSV file for Google Sheets: {csv_filename}")
                 )
 
-        if st.session_state.ignored_messages:
+        # 🌟 DISPLAY SUSPECTED MISSED ORDERS 🌟
+        if suspected_msgs:
             st.markdown("<br>", unsafe_allow_html=True)
-            with st.expander(f"⚠️ System Messages & Ignored Texts ({len(st.session_state.ignored_messages)} items)", expanded=False):
-                for ig_msg in st.session_state.ignored_messages:
-                    st.caption(f"🕒 {ig_msg['Date']} - {ig_msg['Time']}")
-                    clean_display = re.split(r'^\[.*?\] .*?:\s', ig_msg['Text'], maxsplit=1)[-1]
+            with st.expander(f"🚨 SUSPECTED MISSED ORDERS ({len(suspected_msgs)} items) - MUST CHECK!", expanded=True):
+                st.warning("Ei message gulor vitore 'taka', 'thana', 'blender' er moto order word ache, kintu kono Valid Phone Number pawa jayni! Dayakore manual check korun.")
+                for sm in suspected_msgs:
+                    st.caption(f"🕒 {sm['Date']} - {sm['Time']}")
+                    clean_display = re.split(r'^\[.*?\] .*?:\s', sm['Text'], maxsplit=1)[-1]
+                    st.error(clean_display)
+                    
+        # 🌟 DISPLAY PURE JUNK 🌟
+        if system_junk:
+            st.markdown("<br>", unsafe_allow_html=True)
+            with st.expander(f"🗑️ System Messages / Junk ({len(system_junk)} items)", expanded=False):
+                st.info("Egulo asha kora jay normal text/system message. Ete kono order info nai.")
+                for jm in system_junk:
+                    st.caption(f"🕒 {jm['Date']} - {jm['Time']}")
+                    clean_display = re.split(r'^\[.*?\] .*?:\s', jm['Text'], maxsplit=1)[-1]
                     st.code(clean_display, language="text")
 
 with tab_merge:
@@ -928,44 +970,36 @@ with tab_merge:
                 merged_df = merged_df.drop_duplicates(subset=['Phone Number'], keep='last')
                 merged_df = merged_df.drop(columns=['sort_dt'])
                 
-                merged_df['Sl.'] = range(1, len(merged_df) + 1)
-                
-                # --- CUSTOM CSV DATAFRAME CREATION FOR MERGE ---
-                csv_merged_df = merged_df.copy()
-                if 'SNO' in csv_merged_df.columns: csv_merged_df.drop(columns=['SNO'], inplace=True)
-                csv_cols = ["Sl.", "Name", "Phone Number", "Address", "Quantity", "Product", "price", "approved", "Note", "Date", "Time"]
-                for c in csv_cols:
-                    if c not in csv_merged_df.columns:
-                        csv_merged_df[c] = ""
-                csv_merged_df = csv_merged_df[csv_cols]
+                merged_df['SNO'] = range(1, len(merged_df) + 1)
                 
                 output_merge = BytesIO()
                 with pd.ExcelWriter(output_merge, engine='openpyxl') as writer:
-                    csv_merged_df.to_excel(writer, index=False, sheet_name="Orders")
+                    merged_df.to_excel(writer, index=False, sheet_name="Orders")
                     workbook = writer.book
                     worksheet = writer.sheets['Orders']
                     
                     status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked"', allow_blank=True)
                     worksheet.add_data_validation(status_dv)
-                    status_dv.add('H2:H10000') 
+                    status_dv.add('J2:J10000') 
                     
                     pd.DataFrame({"Date Tag": [f"Merged_{datetime.now(BD_TZ).strftime('%d-%m-%y')}"], "Total Orders": [len(merged_df)]}).to_excel(writer, index=False, sheet_name="Summary")
+                    for idx, prod in enumerate(st.session_state.product_list, start=1): writer.sheets['Summary'].cell(row=idx, column=5, value=prod)
                     
-                    # 🌟 EXACT PINK/MAGENTA FORMATTING LIKE SCREENSHOT 🌟
-                    header_fill = PatternFill(start_color="FF00FF", end_color="FF00FF", fill_type="solid")
-                    for cell in worksheet[1]: 
-                        cell.fill = header_fill
-                        cell.font = Font(bold=True, color="000000", size=12)
-                        cell.alignment = Alignment(horizontal="center", vertical="center")
-                        cell.border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
-                        
+                    prod_dv = DataValidation(type="list", formula1=f"Summary!$E$1:$E${len(st.session_state.product_list)}", allow_blank=True)
+                    worksheet.add_data_validation(prod_dv)
+                    prod_dv.add('G2:G10000') 
+                    
+                    header_fill = PatternFill(start_color="e6f2ff", end_color="e6f2ff", fill_type="solid")
+                    sno_fill = PatternFill(start_color="10B981", end_color="10B981", fill_type="solid")
+                    for cell in worksheet[1]: cell.fill, cell.font, cell.alignment, cell.border = header_fill, Font(bold=True, color="000000"), Alignment(horizontal="center", vertical="center"), Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
                     for row in worksheet.iter_rows(min_row=2, max_row=worksheet.max_row, min_col=1, max_col=worksheet.max_column):
                         for cell in row:
-                            cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center", horizontal="center")
+                            cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
+                            if cell.column == 1: cell.fill, cell.font, cell.alignment = sno_fill, Font(bold=True, color="FFFFFF"), Alignment(horizontal="center", vertical="center")
 
-                    worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
-                    worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
-                    worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
+                    worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"OK"'], fill=PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid"), font=Font(color="006100")))
+                    worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
+                    worksheet.conditional_formatting.add('J2:J10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
                     
                     for col in worksheet.columns:
                         max_len = 0
@@ -988,10 +1022,9 @@ with tab_merge:
                         on_click=lambda: log_task(f"Merged {len(uploaded_excels)} files into 1 Master Excel File.")
                     )
                 with col_md2:
-                    # utf-8-sig for proper bangla encoding
                     st.download_button(
                         label="📊 Download CSV (For Google Sheets)",
-                        data=csv_merged_df.to_csv(index=False).encode('utf-8-sig'),
+                        data=merged_df.to_csv(index=False).encode('utf-8'),
                         file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv",
                         mime="text/csv",
                         type="secondary",
@@ -1015,11 +1048,12 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v14.0 (Exact Format Edition)")
+    st.markdown("**Version:** NWOP v13.0 (Validation Master Edition)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
         st.session_state.total_extracted_today = 0
+        st.session_state.total_scanned = 0
         log_task("App memory completely wiped.")
         st.rerun()
 
@@ -1039,7 +1073,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 14.0 (Exact Format Edition)
+    * **Version:** 13.0 (Validation Master Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
