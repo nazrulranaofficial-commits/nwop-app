@@ -160,17 +160,6 @@ st.markdown("""
         margin-top: 20px;
     }
 
-    /* Raw Message Box */
-    .raw-msg-box {
-        background-color: rgba(16, 185, 129, 0.05);
-        padding: 15px;
-        border-radius: 12px;
-        border: 1px dashed rgba(16, 185, 129, 0.3);
-        height: 100%;
-        font-size: 0.95rem;
-        line-height: 1.5;
-    }
-
     @media (max-width: 768px) {
         .main-header-title { font-size: 1.8rem; margin-top: 5px; text-align: center; }
         .welcome-text { text-align: center; }
@@ -293,7 +282,7 @@ def parse_copy_paste_time(pasted_str):
 # 🌟 SMART EXTRACTION ENGINE 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
-    raw_text = text  # Save raw text for side-by-side validation
+    raw_text = text  
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
     body = parts[1] if len(parts) > 1 else text
     body_en = bn_to_en_digits(body)
@@ -414,12 +403,16 @@ def extract_order_details(msg_dict):
     address = re.sub(r'\s*,\s*', ', ', address) 
     address = address.strip(' ,-:;') 
 
+    # 🌟 STATIC TITLE FIX: Title won't change dynamically to prevent Expander Collapse 🌟
+    expander_title = f"Order: {name} | ৳{price} | 📞 {phone} | 🕒 {msg_dict['time_str']}"
+
     return {
         "id": str(uuid.uuid4()),
         "status": "valid", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"],
         "Name": name, "Phone Number": phone, "Address": address, "Product": product,
         "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False,
-        "RawText": raw_text # 🌟 Added for Side-by-Side validation
+        "RawText": raw_text,
+        "Expander_Title": expander_title
     }
 
 # --- APP LAYOUT HEADER ---
@@ -493,7 +486,7 @@ with tab_workspace:
                             elif filter_type == "Time Range (Copy-Paste)" and start_dt and end_dt and msg["msg_dt"]:
                                 if start_dt <= msg["msg_dt"] <= end_dt: filtered_messages.append(msg)
                         
-                        st.session_state.total_scanned = len(filtered_messages) # 🌟 Save Total Scanned
+                        st.session_state.total_scanned = len(filtered_messages)
                         temp_orders, temp_ignored = [], []
                         phone_counts = {}
                         
@@ -649,7 +642,7 @@ with tab_workspace:
                                 except: pass
                             driver.quit()
                             
-                            st.session_state.total_scanned = len(filtered_messages) # 🌟 Save Total Scanned
+                            st.session_state.total_scanned = len(filtered_messages)
                             temp_orders, temp_ignored = [], []
                             phone_counts = {}
                             
@@ -718,7 +711,6 @@ with tab_workspace:
             passed_checks = 0
             total_checks = len(st.session_state.all_orders) * 3
             
-            # 🌟 AVERAGE PRICE CALCULATION FOR ANOMALY DETECTION 🌟
             valid_prices = df[df['Price'].astype(int) > 0]['Price'].astype(int)
             avg_price = valid_prices.mean() if not valid_prices.empty else 0
             
@@ -736,7 +728,6 @@ with tab_workspace:
                 if q_check: passed_checks += 1
                 else: issues.append("Invalid Quantity")
                 
-                # 🌟 PRICE ANOMALY DETECTION 🌟
                 if avg_price > 0 and pr_val > 0 and pr_val < (avg_price * 0.5):
                     issues.append(f"📉 Low Price Alert (Avg is ৳{int(avg_price)})")
                 
@@ -796,7 +787,8 @@ with tab_workspace:
                         "Approval": "Pending",
                         "Note": "Manual Entry",
                         "is_duplicate": False,
-                        "RawText": "✍️ This order was added manually."
+                        "RawText": "✍️ This order was added manually.",
+                        "Expander_Title": f"✍️ Manual Order | 🕒 {datetime.now(BD_TZ).strftime('%I:%M %p')}"
                     }
                     st.session_state.all_orders.append(new_manual_order)
                     st.rerun()
@@ -806,25 +798,30 @@ with tab_workspace:
                 o_id = row['id']
                 
                 dup_tag = " (⚠️ Duplicate)" if row.get('is_duplicate', False) else ""
-                man_tag = " (✍️ Manual)" if row.get('Note', '') == 'Manual Entry' else ""
+                # 🌟 FIXED EXPANDER TITLE (NO AUTO COLLAPSE) 🌟
+                final_title = row.get('Expander_Title', f"Order Details | 📞 {row.get('Phone Number','')}") + dup_tag
                 
                 st.markdown(f'<div id="order-{o_id}" style="position: relative; top: -60px;"></div>', unsafe_allow_html=True)
                 
-                with st.expander(f"Order: {row['Name']} | ৳{row['Price']} | 📞 {row['Phone Number']} | 🕒 {row['Time']}{dup_tag}{man_tag}", expanded=False):
-                    col_rm1, col_rm2 = st.columns([5, 1])
-                    with col_rm2:
-                        if st.button("🗑️ Remove", key=f"del_{o_id}", help="Delete this order"):
-                            st.session_state.all_orders = [o for o in st.session_state.all_orders if o['id'] != o_id]
-                            st.rerun()
-                            
-                    # 🌟 SIDE-BY-SIDE VALIDATION UI 🌟
-                    col_raw, col_edit = st.columns([1, 1.5])
+                with st.expander(final_title, expanded=False):
                     
-                    with col_raw:
-                        clean_raw = row.get('RawText', 'N/A').replace('\n', '<br>')
-                        st.markdown(f"<div class='raw-msg-box'><strong>💬 Original Raw Message:</strong><br><br>{clean_raw}</div>", unsafe_allow_html=True)
-                        
-                    with col_edit:
+                    # 🌟 WHATSAPP PREMIUM CHAT BUBBLE (Mobile Optimized) 🌟
+                    clean_raw = row.get('RawText', 'N/A').replace('\n', '<br>')
+                    clean_raw = re.split(r'^\[.*?\] .*?:\s', clean_raw, maxsplit=1)[-1] # Clean the time bracket
+                    
+                    bubble_html = f"""
+                    <div style="display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 20px;">
+                        <div style="background: linear-gradient(135deg, #128C7E, #075E54); color: white; padding: 12px 18px; border-radius: 18px; border-top-left-radius: 2px; max-width: 95%; box-shadow: 0px 4px 10px rgba(0,0,0,0.15);">
+                            <div style="font-size: 11px; color: #DCF8C6; margin-bottom: 5px; font-weight: 600;">💬 ORIGINAL CUSTOMER MESSAGE</div>
+                            <div style="font-size: 15px; line-height: 1.5; font-family: sans-serif;">{clean_raw}</div>
+                        </div>
+                    </div>
+                    """
+                    st.markdown(bubble_html, unsafe_allow_html=True)
+                    
+                    # 🌟 EDITING FIELDS 🌟
+                    c1, c2 = st.columns([1, 1])
+                    with c1:
                         new_name = st.text_input("👤 Name:", row['Name'], key=f"name_{o_id}")
                         new_addr = st.text_input("🏠 Address:", row['Address'], key=f"addr_{o_id}")
                         new_phone = st.text_input("📱 Phone:", row['Phone Number'], key=f"phone_{o_id}")
@@ -837,6 +834,7 @@ with tab_workspace:
                         new_prod = st.selectbox("📦 Item:", st.session_state.product_list, index=st.session_state.product_list.index(row['Product']), key=f"prod_{o_id}")
                         st.session_state.all_orders[i]['Product'] = new_prod
                         
+                    with c2:
                         st.session_state.all_orders[i]['Note'] = st.text_input("📝 Note:", row.get('Note', ''), key=f"note_{o_id}")
                         
                         col_p, col_q = st.columns(2)
@@ -849,14 +847,21 @@ with tab_workspace:
                         current_idx = status_list.index(row['Approval']) if row['Approval'] in status_list else 0
                         st.session_state.all_orders[i]['Approval'] = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{o_id}")
                         
+                    col_rm1, col_rm2 = st.columns([2, 1])
+                    with col_rm1:
                         st.markdown(f'''<a href="tel:{st.session_state.all_orders[i]['Phone Number']}" style="display:inline-block; text-align:center; width:100%; background: linear-gradient(135deg, #10B981, #059669); color:white; padding:10px 15px; border-radius:25px; margin-top:20px; font-weight:bold; box-shadow: 0px 4px 10px rgba(16, 185, 129, 0.3); text-decoration:none;">📞 Call Customer</a>''', unsafe_allow_html=True)
+                    with col_rm2:
+                        st.markdown("<br>", unsafe_allow_html=True)
+                        if st.button("🗑️ Remove", key=f"del_{o_id}"):
+                            st.session_state.all_orders = [o for o in st.session_state.all_orders if o['id'] != o_id]
+                            st.rerun()
 
             st.markdown("---")
             filename = f"NWOP_Orders_{st.session_state.sheet_date}.xlsx"
             csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
             
             # Export data without internal keys
-            export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id', 'RawText']} for order in st.session_state.all_orders]
+            export_data = [{k:v for k,v in order.items() if k not in ['is_duplicate', 'id', 'RawText', 'Expander_Title']} for order in st.session_state.all_orders]
             export_df = pd.DataFrame(export_data)
             export_df.insert(0, 'SNO', range(1, 1 + len(export_df)))
             export_columns = ["SNO", "Date", "Time", "Name", "Phone Number", "Address", "Product", "Quantity", "Price", "Approval", "Note"]
@@ -1048,7 +1053,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v13.0 (Validation Master Edition)")
+    st.markdown("**Version:** NWOP v14.0 (WhatsApp Theme & UX Fix)")
     st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
@@ -1073,7 +1078,7 @@ with tab_about:
     st.markdown("""
     * **Name:** Nazrul Rana
     * **WhatsApp:** +880164143400
-    * **Version:** 13.0 (Validation Master Edition)
+    * **Version:** 14.0 (UX Master Edition)
     """)
     
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
