@@ -58,7 +58,7 @@ def bn_to_en_digits(text):
     return str(text).translate(str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789'))
 
 def format_phone_number(raw_phone):
-    if not raw_phone or str(raw_phone).strip().upper() == "N/A" or str(raw_phone).strip().upper() == "NAN": return "N/A"
+    if not raw_phone or str(raw_phone).strip().upper() == "N/A": return "N/A"
     clean = re.sub(r'\D', '', bn_to_en_digits(raw_phone))
     if len(clean) < 10: return "N/A"
     if clean.startswith('880') and len(clean) > 11: clean = clean[2:] 
@@ -122,8 +122,8 @@ DEFAULT_PRODUCTS = ['Silver Crest Electric Blender', 'Electronic Grinder', 'Elec
 # ==========================================
 # ☁️ CLOUD DATABASE SETTINGS (JSONBin.io) ☁️
 # ==========================================
-JSONBIN_API_KEY = "$2a$10$rcQnNQ/rWrmDdEmM9J89Geuxx/YynnoMgDPAeU7pmWlw5QEkUzFoC"  # Optional: Enter your X-Master-Key here
-JSONBIN_BIN_ID = "$2a$10$65Qt399xVt6/K/iio5JdAuRduXqMYlkhnKP2KgsvPJewj1E4LmbYa"   # Optional: Enter your Bin ID here
+JSONBIN_API_KEY = ""  # Optional: Enter your X-Master-Key here
+JSONBIN_BIN_ID = ""   # Optional: Enter your Bin ID here
 # ==========================================
 
 def load_data():
@@ -219,7 +219,6 @@ st.markdown("""
     .block-container { padding-top: 2rem !important; padding-bottom: 3rem !important; max-width: 1100px !important; }
     [data-testid="stToolbar"] a { display: none !important; } footer { display: none !important; }
 
-    /* Glassmorphism Expanders */
     [data-testid="stExpander"] {
         background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important;
         border-radius: 18px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.3) !important;
@@ -228,7 +227,6 @@ st.markdown("""
     [data-testid="stExpander"]:hover { box-shadow: 0 10px 30px 0 rgba(16, 185, 129, 0.15) !important; border: 1px solid rgba(16, 185, 129, 0.25) !important; }
     [data-testid="stExpander"] > details > summary { padding: 18px !important; font-weight: 800 !important; font-size: 1.1rem !important; color: #FFFFFF !important; }
     
-    /* Metrics Cards */
     [data-testid="stMetric"] {
         background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(16px) !important;
         border-radius: 20px !important; padding: 20px 10px !important; text-align: center !important;
@@ -237,7 +235,6 @@ st.markdown("""
     [data-testid="stMetricValue"] { font-size: 2.2rem !important; font-weight: 900 !important; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
     [data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 700 !important; opacity: 0.8 !important; color: #E0E0E0 !important; }
 
-    /* Cyber Buttons */
     .stButton > button {
         border-radius: 25px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 10px 20px !important;
         font-weight: 800 !important; letter-spacing: 0.5px !important; width: 100% !important;
@@ -250,7 +247,6 @@ st.markdown("""
     .doubt-card { padding: 15px 20px; border-left: 5px solid #EF4444; background: rgba(239, 68, 68, 0.1); border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: white; }
     .doubt-card .fix-btn { background: linear-gradient(135deg, #EF4444, #DC2626); color: white !important; padding: 8px 18px; border-radius: 20px; text-decoration: none; font-weight: 800; font-size: 0.9rem; transition: 0.3s; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
 
-    /* WhatsApp Original Bubble */
     .wa-bubble {
         background: linear-gradient(135deg, rgba(7, 94, 84, 0.95), rgba(18, 140, 126, 0.85)); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2);
         color: white; padding: 18px 22px; border-radius: 20px; border-top-left-radius: 0px; max-width: 95%; box-shadow: 0 8px 25px rgba(0,0,0,0.4); margin-bottom: 25px; line-height: 1.6;
@@ -263,39 +259,39 @@ st.markdown("""
     .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] { border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 12px !important; background: rgba(255, 255, 255, 0.05) !important; color: white !important; font-weight: 500 !important; }
     .stTextInput input:focus, .stNumberInput input:focus { border: 1px solid #10B981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important; background: rgba(0,0,0,0.4) !important; }
 
-    /* NEW CLEAN LOGIN UI */
-    .login-container { display: flex; justify-content: center; align-items: center; height: 80vh; }
-    .dev-badge { margin-top: 30px; padding-top: 20px; font-size: 0.85rem; color: #A0A0A0; border-top: 1px solid rgba(255,255,255,0.1); }
-    @media (max-width: 768px) { .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; } .doubt-card { flex-direction: column; align-items: flex-start; gap: 15px; } }
+    .login-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
+    .login-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); padding: 50px; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255, 255, 255, 0.1); width: 100%; max-width: 450px; }
+    .dev-badge { margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: #A0A0A0; }
+
+    @media (max-width: 768px) { .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; } .login-card { padding: 30px; } .doubt-card { flex-direction: column; align-items: flex-start; gap: 15px; } }
     </style>
 """, unsafe_allow_html=True)
 
-# --- LOGIN SYSTEM (CLEAN NATIVE UI) ---
-CORRECT_PASSWORD = "64922@Anika" 
+# --- LOGIN SYSTEM ---
+CORRECT_PASSWORD = "nwop" 
 
 if 'logged_in' not in st.session_state:
     st.session_state.logged_in = False
 
 if not st.session_state.logged_in:
-    _, col_center, _ = st.columns([1, 2, 1])
+    st.markdown("<div class='login-wrapper'>", unsafe_allow_html=True)
+    _, col_center, _ = st.columns([1, 4, 1])
     with col_center:
-        st.write("")
-        st.write("")
+        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
         img_bytes = get_image_bytes("logo.png")
-        if img_bytes: 
-            st.image(img_bytes, width=120)
-        st.markdown("<h1 style='font-weight:900; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>NWOP SYSTEM</h1>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #A0A0A0; font-size: 14px;'>Secure Enterprise Access</p>", unsafe_allow_html=True)
-        
-        password_input = st.text_input("Master Password", type="password", placeholder="Enter Password...", label_visibility="collapsed")
-        st.write("")
-        if st.button("Unlock Dashboard", type="primary", use_container_width=True):
+        if img_bytes: st.image(img_bytes, width=150)
+        else: st.markdown("<h1 style='font-size: 80px; margin-bottom: 0;'>🚀</h1>", unsafe_allow_html=True)
+        st.markdown("<h2 style='font-weight:900; margin-top: 15px; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>NWOP SYSTEM</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #A0A0A0; font-size: 14px; margin-top:-5px;'>Secure Enterprise Access</p><br>", unsafe_allow_html=True)
+        password_input = st.text_input("Master Password", type="password", label_visibility="collapsed", placeholder="Enter authorization code...")
+        st.markdown("<br>", unsafe_allow_html=True)
+        if st.button("Unlock System", type="primary"):
             if password_input == CORRECT_PASSWORD:
                 st.session_state.logged_in = True
                 st.rerun()
-            else: st.error("❌ Incorrect Password!")
-        
-        st.markdown("<div class='dev-badge'><b>Developed by Nazrul Rana</b><br>WhatsApp: +880164143400 | v48.0 Perfect Stable Edition</div>", unsafe_allow_html=True)
+            else: st.error("❌ Access Denied! Invalid code.")
+        st.markdown("<div class='dev-badge'><b>Developed by Nazrul Rana</b><br>WhatsApp: +880164143400 | v45.0 The Perfect Engine</div></div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 # 🌟 BASE REGEX EXTRACTOR (100% UNCHANGED CORE LOGIC) 🌟
@@ -306,6 +302,7 @@ def extract_order_details(msg_dict):
     body = parts[1] if len(parts) > 1 else text
     
     body = clean_system_messages(body)
+    
     body_en = bn_to_en_digits(body)
     body_en = re.sub(r'(\d),(\d)', r'\1\2', body_en)
 
@@ -404,23 +401,25 @@ def extract_order_details(msg_dict):
     address = ", ".join(address_lines) if address_lines else "N/A"
     address = re.sub(r',+', ',', address); address = re.sub(r'\s*,\s*', ', ', address); address = address.strip(' ,-:;') 
 
+    expander_title = f"Order: {name} | ৳{price} | 📞 {phone} | 🕒 {msg_dict['time_str']} | ⚙️ Regex"
+
     return {
         "id": str(uuid.uuid4()), "status": "valid", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"],
         "Name": name, "Phone Number": phone, "Address": address, "Product": product,
         "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False,
-        "RawText": raw_text, "Method": "⚙️ Regex"
+        "RawText": raw_text, "Method": "⚙️ Regex", "Expander_Title": expander_title
     }
 
 # 🌟 AI ANALYZE (SINGLE ORDER RECOVERY) 🌟
 def analyze_single_order(raw_text, engine, groq_key, gem_key):
     prompt = f"""
-    Extract order details from this RAW WhatsApp message perfectly.
+    Extract missing or garbled order details from this RAW WhatsApp message perfectly.
     
     CRITICAL RULES (NO MISTAKES):
-    1. KEEP ORIGINAL LANGUAGE: If the text is in Bangla, keep it in Bangla. If English, keep English. DO NOT TRANSLATE.
-    2. Name: Extract the customer's name exactly as written. Do not change format.
-    3. Address: Must contain the FULL address exactly as written. DO NOT omit any part! Remove prefix labels like "add:", "Name:".
-    4. Phone Number: Extract the raw phone number. ONLY FOR PHONE NUMBER: If written in Bangla digits (০-৯), convert to English digits (0-9).
+    1. DO NOT TRANSLATE. Preserve exact original language and spelling.
+    2. Name: Extract the customer's name.
+    3. Address: Must contain the FULL address given (Thana, Zilla, Area, Landmarks). DO NOT omit any part! Remove prefix labels like "add:", "Name:".
+    4. Phone Number: Extract the raw phone number exactly as written.
     5. Price: Find the final total. If it says "999+140=1139", price is 1139. Ignore commas. Do not do math.
     6. Quantity: Extract integer. Default 1.
     7. Product: "Silver Crest" + "Blender" -> "Silver Crest Electric Blender". Or exact text.
@@ -451,7 +450,7 @@ def extract_from_image_vision(image_file, api_key):
         Read the provided image (handwritten or printed in Bangla/English).
         Extract the following and output ONLY a raw JSON object:
         { "Name": "Clean Name", "Phone Number": "01...", "Address": "Full Address", "Product": "Product Name", "Quantity": integer, "Price": integer }
-        Do not add Markdown. Do not calculate math, grab the final total. Keep original language except phone numbers.
+        Do not add Markdown. Do not calculate math, grab the final total.
         """
         response = client.models.generate_content(model='gemini-1.5-flash', contents=[prompt, img])
         text = re.sub(r'^```json\s*|\s*```$', '', response.text.strip(), flags=re.IGNORECASE|re.MULTILINE).strip()
@@ -460,14 +459,22 @@ def extract_from_image_vision(image_file, api_key):
         if match: return json.loads(match.group(0))
     except: return None
 
-# 🌟 PATHAO API (AUTO-RESOLVES AREA BY AI & DETECTS INCOMPLETE ADDR) 🌟
+# 🌟 PATHAO API (AUTO-RESOLVES AREA BY AI) 🌟
 def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, password):
     try:
         token_url = "https://api-hermes.pathao.com/aladdin/api/v1/issue-token"
-        token_payload = {"client_id": client_id, "client_secret": client_secret, "grant_type": "password", "username": email, "password": password}
+        token_payload = {
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "password",
+            "username": email,
+            "password": password
+        }
         token_res = requests.post(token_url, json=token_payload)
         
-        if token_res.status_code != 200: return False, f"Auth Failed: Check Client ID/Secret or Email/Password."
+        if token_res.status_code != 200: 
+            return False, f"Auth Failed: Check Client ID/Secret or Email/Password."
+            
         access_token = token_res.json().get("access_token")
         
         order_url = "https://api-hermes.pathao.com/aladdin/api/v1/orders"
@@ -487,28 +494,9 @@ def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, pa
             "amount_to_collect": int(order_data.get("Price", 0))
         }
         order_res = requests.post(order_url, headers=headers, json=payload)
-        
-        if order_res.status_code in [200, 201]:
-            resp_data = order_res.json().get('data', {})
-            cons_id = resp_data.get('consignment_id', 'Success')
-            
-            is_incomplete = False
-            str_resp = order_res.text.replace(" ", "")
-            if ('"city_id":1' in str_resp and '"zone_id":1' in str_resp) or ('"recipient_city":1' in str_resp and '"recipient_zone":1' in str_resp):
-                is_incomplete = True
-                
-            if not is_incomplete and cons_id != 'Success':
-                try:
-                    info_res = requests.get(f"https://api-hermes.pathao.com/aladdin/api/v1/orders/{cons_id}", headers=headers, timeout=5)
-                    str_info = info_res.text.replace(" ", "")
-                    if ('"city_id":1' in str_info and '"zone_id":1' in str_info) or ('"recipient_city":1' in str_info and '"recipient_zone":1' in str_info):
-                        is_incomplete = True
-                except: pass
-                
-            final_note = f"{cons_id}"
-            if is_incomplete: final_note += " ⚠️ Incomplete (Dhaka, Banani)"
-            
-            return True, final_note
+        if order_res.status_code in [200, 201]: 
+            cons_id = order_res.json().get('data', {}).get('consignment_id', 'Success')
+            return True, cons_id
         else: return False, f"Pathao Error: {order_res.json().get('message', 'Invalid Entry')}"
     except Exception as e: return False, f"Connection Error: {str(e)}"
 
@@ -624,11 +612,7 @@ with tab_workspace:
         filter_type = st.sidebar.radio("Extract Data By:", ["All Time", "Specific Date", "Time Range (Copy-Paste)"])
         target_date_str, start_str, end_str = "", "", ""
 
-        # WINDOWS FORMATTING FIX (Removed %-m and %-d which causes ValueError)
-        now = datetime.now(BD_TZ)
-        safe_date_format = f"{now.month}/{now.day}/{now.strftime('%y')}"
-
-        if filter_type == "Specific Date": target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", safe_date_format)
+        if filter_type == "Specific Date": target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", datetime.now(BD_TZ).strftime("%-m/%-d/%y"))
         elif filter_type == "Time Range (Copy-Paste)":
             start_str = st.sidebar.text_input("Start Time:", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else "[3/4/26, 9:21:30 PM]")
             end_str = st.sidebar.text_input("End Time:", "[3/4/26, 10:08:27 PM]")
@@ -926,7 +910,6 @@ with tab_workspace:
                     for dob in doubtful_orders:
                         o_id = dob['id']
                         issue_text = ', '.join(dob['issues'])
-                        # 🌟 RE-ADDED FIX BUTTON FOR DOUBTFUL ENTRIES 🌟
                         st.markdown(f"""
                             <div class="doubt-card">
                                 <div style="flex: 1;">
@@ -975,7 +958,7 @@ with tab_workspace:
                     st.session_state.all_orders.insert(0, new_manual_order)
                     st.rerun()
 
-            # 🌟 FLAWLESS STATE BINDING ENGINE (UUID BYPASS TRICK) 🌟
+            # 🌟 FLAWLESS STATE BINDING ENGINE (NO WIDGET EXCEPTIONS) 🌟
             for i, row in enumerate(st.session_state.all_orders):
                 if 'id' not in row: row['id'] = str(uuid.uuid4())
                 o_id = row['id']
@@ -1000,6 +983,7 @@ with tab_workspace:
                     
                     c1, c2 = st.columns([1, 1])
                     with c1:
+                        # 🌟 RENDER WIDGETS AND GET NEW VALUES DIRECTLY 🌟
                         new_name = st.text_input("👤 Name:", value=row.get('Name',''), key=f"name_{o_id}")
                         new_addr = st.text_input("🏠 Address:", value=row.get('Address',''), key=f"addr_{o_id}")
                         new_phone = st.text_input("📱 Phone:", value=row.get('Phone Number',''), key=f"phone_{o_id}")
@@ -1011,6 +995,7 @@ with tab_workspace:
                         
                         new_note = st.text_input("📝 Note:", value=row.get('Note', ''), key=f"note_{o_id}")
                         
+                        # UPDATE CORE DICT (NO SESSION STATE CACHE CONFLICT)
                         st.session_state.all_orders[i]['Name'] = new_name
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
@@ -1054,8 +1039,7 @@ with tab_workspace:
                                     if success:
                                         st.session_state.all_orders[i]['Approval'] = "Sent to Pathao"
                                         st.session_state.all_orders[i]['Note'] = f"✅ Pathao ID: {pathao_msg}"
-                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4()) # Generate new ID to force refresh UI
-                                        
+                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4()) # Magic refresh
                                         log_task(f"Pushed order {new_name} to Pathao. ID: {pathao_msg}")
                                         st.success(f"Success! Consignment ID: {pathao_msg}")
                                         time.sleep(1)
@@ -1077,6 +1061,7 @@ with tab_workspace:
                                     new_data = analyze_single_order(row.get('RawText',''), eng, st.session_state.groq_api_key, st.session_state.gemini_api_key)
 
                                     if new_data:
+                                        # Only write back to the data structure
                                         st.session_state.all_orders[i]['Name'] = str(new_data.get('Name', new_name)).strip()
                                         st.session_state.all_orders[i]['Address'] = str(new_data.get('Address', new_addr)).strip()
                                         
@@ -1091,7 +1076,7 @@ with tab_workspace:
                                         st.session_state.all_orders[i]['Quantity'] = int(new_data.get('Quantity', new_qty))
                                         st.session_state.all_orders[i]['Method'] = "🤖 AI Corrected"
                                         
-                                        # 🌟 MAGIC: Give this row a new ID so Streamlit is forced to re-render it instantly!
+                                        # 🌟 MAGIC: Force Streamlit to forget the old widgets by assigning a new UUID!
                                         st.session_state.all_orders[i]['id'] = str(uuid.uuid4())
                                         
                                         st.success("✅ AI perfectly fixed the data!")
@@ -1139,6 +1124,7 @@ with tab_workspace:
         if system_junk:
             st.markdown("<br>", unsafe_allow_html=True)
             with st.expander(f"🗑️ System Messages / Junk ({len(system_junk)} items)", expanded=False):
+                st.info("Egulo normal text/system message. Ete kono order info nai.")
                 for idx, jm in enumerate(system_junk):
                     jm_id = jm.get("id", f"junk_{idx}")
                     st.caption(f"🕒 {jm.get('Date', '')} - {jm.get('Time', '')}")
@@ -1178,13 +1164,9 @@ with tab_bulk_pathao:
                 note = str(row.get('Note', ''))
                 is_sent = "Sent to Pathao" in appr or "Pathao ID" in note
                 
-                # 🌟 APPLY ZERO RECOVERY ON UPLOAD 🌟
-                raw_ph = str(row.get('Phone Number', 'N/A')).replace('.0', '')
-                clean_ph = format_phone_number(raw_ph) if raw_ph != "N/A" else "N/A"
-                
                 bulk_orders.append({
                     "id": str(uuid.uuid4()), "Name": str(row.get('Name', 'N/A')),
-                    "Phone Number": clean_ph,
+                    "Phone Number": str(row.get('Phone Number', 'N/A')).replace('.0', ''),
                     "Address": str(row.get('Address', 'N/A')), "Product": str(row.get('Product', 'Electric Blender')),
                     "Quantity": int(float(str(row.get('Quantity', 1)).replace('N/A', '1') or 1)),
                     "Price": int(float(str(row.get('Price', 0)).replace('N/A', '0') or 0)),
@@ -1308,7 +1290,7 @@ with tab_ai_assistant:
     col_c1, col_c2 = st.columns([5, 1])
     with col_c2:
         if st.button("🧹 Clear Chat"):
-            st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার অর্ডার বা বিজনেস নিয়ে যেকোনো প্রশ্ন করতে পারেন।"}]
+            st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার অর্ডার বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
             st.rerun()
     
     if not GROQ_AVAILABLE or not st.session_state.groq_api_key:
@@ -1329,20 +1311,9 @@ with tab_ai_assistant:
             with st.spinner("🤖 Thinking..."):
                 try:
                     system_prompt = f"""
-                    You are "NWOP AI" (Nazrul's Whatsapp Order Parser AI), a highly intelligent, friendly, and professional conversational assistant.
-                    Your creator/developer is Nazrul Rana. 
-                    Developer Details (Share these proudly if asked about your creator):
-                    - Name: Nazrul Rana
-                    - Education: B.Sc. in Computer Science and Engineering (CSE) from Southeast University, Bangladesh.
-                    - WhatsApp: 01641434000
-                    - Facebook: https://www.facebook.com/nazrulranaxD.s
-                    - LinkedIn: https://www.linkedin.com/in/nazrulhuda/
-                    
-                    Your Capabilities:
-                    - You can process, analyze, and discuss the user's business data. (BUSINESS CONTEXT: Orders Today: {total_orders}, Revenue: {total_revenue} Tk. Products: {', '.join(st.session_state.product_list)})
-                    - You are excellent at casual chatting (Adda), telling jokes, discussing current weather, Bangladesh news, tech trends, and engaging in fun, friendly conversations in fluent Bengali or English (based on the user's input).
-                    - Respond naturally like a human assistant. Be highly efficient, insightful, and humorous when appropriate.
-                    - Do not sound like a boring robot. Use emojis contextually.
+                    You are NWOP AI, a friendly assistant for a business manager named Nazrul Rana.
+                    Speak in Bengali or English.
+                    BUSINESS CONTEXT: Orders Today: {total_orders}, Revenue: {total_revenue} Tk. Products: {', '.join(st.session_state.product_list)}
                     """
                     
                     if "Groq" in st.session_state.analyze_engine and st.session_state.groq_api_key:
@@ -1380,8 +1351,7 @@ with tab_merge:
                 for file in uploaded_excels:
                     df = pd.read_excel(file, sheet_name="Orders", dtype=str)
                     if 'Phone Number' in df.columns:
-                        # 🌟 APPLY ZERO RECOVERY ON MERGE 🌟
-                        df['Phone Number'] = df['Phone Number'].apply(lambda x: format_phone_number(str(x).replace('.0', '')))
+                        df['Phone Number'] = df['Phone Number'].fillna("N/A").apply(lambda x: str(x).replace('.0', '') if str(x).endswith('.0') else str(x))
                     all_dfs.append(df)
                 
                 merged_df = pd.concat(all_dfs, ignore_index=True)
@@ -1431,7 +1401,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v48.0 (The Perfect Stable Edition)")
+    st.markdown("**Version:** NWOP v45.0 (The Perfect Engine)")
     
     st.markdown("### ⚡ AI Engine Keys")
     new_api_key = st.text_input("Groq API Key (Speed & High Quota)", type="password", value=st.session_state.groq_api_key, placeholder="gsk_...")
@@ -1489,10 +1459,7 @@ with tab_about:
     st.markdown("#### 👨‍💻 Developer Profile")
     st.markdown("""
     * **Name:** Nazrul Rana
-    * **Education:** B.Sc. in Computer Science and Engineering (CSE), Southeast University.
-    * **WhatsApp:** 01641434000
-    * **Facebook:** [nazrulranaxD.s](https://www.facebook.com/nazrulranaxD.s)
-    * **LinkedIn:** [nazrulhuda](https://www.linkedin.com/in/nazrulhuda/)
-    * **Version:** 48.0 (The Perfect Stable Edition)
+    * **WhatsApp:** +880164143400
+    * **Version:** 45.0 (The Perfect Engine)
     """)
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
