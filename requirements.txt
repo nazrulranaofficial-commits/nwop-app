@@ -1,6 +1,10 @@
 streamlit
 pandas
 openpyxl
+pillow
+pytz
+requests
+groq
+google-genai
 selenium
 webdriver-manager
-pytz
