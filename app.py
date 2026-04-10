@@ -213,12 +213,11 @@ if not SUPABASE_AVAILABLE:
     st.error("⚠️ Supabase is not installed! Run: `pip install supabase` in your terminal.")
     st.stop()
 
-# 🌟 CLEAN NATIVE LOGIN SCREEN (NO EMPTY HTML BOXES) 🌟
+# 🌟 CLEAN NATIVE LOGIN SCREEN 🌟
 if not st.session_state.logged_in:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     _, col, _ = st.columns([1, 1.5, 1])
     with col:
-        # Container style without breaking widgets
         with st.container(border=True):
             st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
             img_bytes = get_image_bytes("logo.png")
@@ -254,7 +253,7 @@ if not st.session_state.logged_in:
                     except Exception as e:
                         st.error(f"❌ Auth Failed: {e}")
                 
-            st.markdown("<div class='dev-badge'>Developed by <b>Nazrul Rana</b><br>v52.1 Perfect Sync Edition</div>", unsafe_allow_html=True)
+            st.markdown("<div class='dev-badge'>Developed by <b>Nazrul Rana</b><br>v53.0 The 100% Masterpiece</div>", unsafe_allow_html=True)
     st.stop()
 
 # ==========================================
@@ -508,7 +507,7 @@ def extract_from_image_vision(image_file, api_key):
         st.error(f"Vision API Error: {e}")
         return None
 
-# 🌟 PATHAO API (SUPERCHARGED INCOMPLETE ADDRESS DETECTOR) 🌟
+# 🌟 PATHAO API (BULLETPROOF INCOMPLETE ADDRESS DETECTOR) 🌟
 def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, password):
     try:
         token_url = "https://api-hermes.pathao.com/aladdin/api/v1/issue-token"
@@ -521,6 +520,7 @@ def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, pa
         order_url = "https://api-hermes.pathao.com/aladdin/api/v1/orders"
         headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json", "Accept": "application/json"}
         
+        original_addr = str(order_data.get("Address", "")).lower()
         payload = {
             "store_id": int(store_id),
             "merchant_order_id": str(order_data.get("id", str(uuid.uuid4())))[:15],
@@ -541,24 +541,28 @@ def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, pa
             cons_id = resp_data.get('consignment_id', 'Success')
             
             is_incomplete = False
-            str_resp = order_res.text.replace(" ", "")
+            raw_resp = order_res.text
+            str_resp_lower = raw_resp.lower()
             
-            # Check Creation Response
-            if ('"city_id":1' in str_resp or '"city_id":"1"' in str_resp) and ('"zone_id":1' in str_resp or '"zone_id":"1"' in str_resp):
+            # Heuristic 1: Exact City 1 + Zone 1 JSON format check
+            if re.search(r'"city_id"\s*:\s*1\b', str_resp_lower) and re.search(r'"zone_id"\s*:\s*1\b', str_resp_lower):
+                is_incomplete = True
+            elif re.search(r'"recipient_city"\s*:\s*1\b', str_resp_lower) and re.search(r'"recipient_zone"\s*:\s*1\b', str_resp_lower):
                 is_incomplete = True
                 
-            # If not caught in creation, fetch full details and check literal strings
+            # Heuristic 2: The "Banani" Injection Trick (Bulletproof for API default fallback)
+            if "banani" in str_resp_lower and "banani" not in original_addr and "বনানী" not in original_addr:
+                is_incomplete = True
+                
             if not is_incomplete and cons_id != 'Success':
                 try:
-                    info_res = requests.get(f"https://api-hermes.pathao.com/aladdin/api/v1/orders/{cons_id}", headers=headers, timeout=5)
-                    raw_text = info_res.text
-                    str_info = raw_text.replace(" ", "")
-                    
-                    if ('"city_id":1' in str_info or '"city_id":"1"' in str_info) and ('"zone_id":1' in str_info or '"zone_id":"1"' in str_info):
+                    info_res = requests.get(f"https://api-hermes.pathao.com/aladdin/api/v1/orders/{cons_id}", headers=headers, timeout=8)
+                    raw_info = info_res.text.lower()
+                    if re.search(r'"city_id"\s*:\s*1\b', raw_info) and re.search(r'"zone_id"\s*:\s*1\b', raw_info):
                         is_incomplete = True
-                    elif ('"recipient_city":1' in str_info or '"recipient_city":"1"' in str_info) and ('"recipient_zone":1' in str_info or '"recipient_zone":"1"' in str_info):
+                    elif re.search(r'"recipient_city"\s*:\s*1\b', raw_info) and re.search(r'"recipient_zone"\s*:\s*1\b', raw_info):
                         is_incomplete = True
-                    elif "Banani" in raw_text and ("Road 01" in raw_text or "Road 1" in raw_text or "Road 0" in raw_text):
+                    elif "banani" in raw_info and "banani" not in original_addr and "বনানী" not in original_addr:
                         is_incomplete = True
                 except: pass
                 
@@ -573,7 +577,7 @@ def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, pa
 def generate_excel_bytes(orders_list, sheet_date, product_list):
     export_data = []
     for order in orders_list:
-        clean_order = {k: v for k, v in order.items() if k not in ['is_duplicate', 'id', 'RawText', 'Expander_Title', 'Method', 'is_sent', 'temp_id']}
+        clean_order = {k: v for k, v in order.items() if k not in ['is_duplicate', 'id', 'RawText', 'Expander_Title', 'Method', 'is_sent', 'temp_id', '❌ Drop']}
         export_data.append(clean_order)
         push_order_to_supabase(clean_order)
         
@@ -1301,9 +1305,12 @@ with tab_bulk_pathao:
         
         if pending_orders:
             st.write("### 📝 Review & Edit Pending Orders")
-            st.info("You can edit the Name, Phone, Address, Price, and Note directly in the table below before sending.")
+            st.info("You can edit the Name, Phone, Address, Price, and Note directly below. **To skip/remove an order, check the '❌ Drop' box.**")
             
+            # 🌟 ADDED '❌ Drop' COLUMN FOR EASY ROW REMOVAL 🌟
             pending_df = pd.DataFrame(pending_orders)[["id", "Name", "Phone Number", "Address", "Price", "Quantity", "Note"]]
+            pending_df.insert(0, '❌ Drop', False)
+            
             edited_df = st.data_editor(pending_df, hide_index=True, use_container_width=True, disabled=["id"])
             edited_records = edited_df.to_dict('records')
             
@@ -1315,28 +1322,41 @@ with tab_bulk_pathao:
                 if not st.session_state.pathao_client_id or not st.session_state.pathao_email:
                     st.error("⚠️ Credentials Missing! Go to Settings.")
                 else:
+                    st.session_state.bulk_results = []
                     final_pending = []
-                    for orig, ed in zip(pending_orders, edited_records):
-                        orig['Name'] = ed['Name']
-                        orig['Phone Number'] = ed['Phone Number']
-                        orig['Address'] = ed['Address']
-                        try: orig['Price'] = int(float(ed['Price']))
-                        except: orig['Price'] = 0
-                        try: orig['Quantity'] = int(float(ed['Quantity']))
-                        except: orig['Quantity'] = 1
-                        orig['Note'] = ed['Note']
-                        final_pending.append(orig)
+                    ed_dict = {str(row['id']): row for row in edited_records}
+                    
+                    for orig in pending_orders:
+                        o_id = str(orig['id'])
+                        if o_id in ed_dict:
+                            ed = ed_dict[o_id]
+                            # Check if the user dropped the row
+                            if ed.get('❌ Drop', False):
+                                orig['Approval'] = "Not Picked"
+                                orig['Note'] = "❌ Skipped by User"
+                                st.session_state.bulk_results.append(orig)
+                                continue
+                                
+                            orig['Name'] = ed.get('Name', orig['Name'])
+                            orig['Phone Number'] = ed.get('Phone Number', orig['Phone Number'])
+                            orig['Address'] = ed.get('Address', orig['Address'])
+                            try: orig['Price'] = int(float(ed.get('Price', orig['Price'])))
+                            except: orig['Price'] = 0
+                            try: orig['Quantity'] = int(float(ed.get('Quantity', orig['Quantity'])))
+                            except: orig['Quantity'] = 1
+                            orig['Note'] = ed.get('Note', orig['Note'])
+                            
+                            final_pending.append(orig)
                     
                     st.session_state.bulk_sending_list = final_pending
                     st.session_state.bulk_sent_list = sent_already
-                    st.session_state.bulk_results = []
                     st.session_state.is_sending_bulk = True
                     st.session_state.bulk_total_to_send = len(final_pending)
                     st.rerun()
 
     if st.session_state.get('is_sending_bulk'):
         total = st.session_state.bulk_total_to_send
-        done = len(st.session_state.bulk_results)
+        done = len(st.session_state.bulk_results) - len([o for o in st.session_state.bulk_results if o.get('Note') == "❌ Skipped by User"])
         
         st.warning("⚠️ **Sending in progress... Do not refresh the page.**")
         st.progress(done / total if total > 0 else 1.0, text=f"Processing order {done+1} of {total}...")
@@ -1458,10 +1478,11 @@ with tab_ai_assistant:
                         response = client.chat.completions.create(messages=api_messages, model=model_use, temperature=0.6)
                         ai_reply = response.choices[0].message.content
                     elif st.session_state.gemini_api_key:
-                        client = genai.Client(api_key=st.session_state.gemini_api_key)
+                        genai.configure(api_key=st.session_state.gemini_api_key)
+                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
                         chat_history_str = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
                         full_prompt = f"{system_prompt}\n\nChat History:\n{chat_history_str}"
-                        response = client.models.generate_content(model='gemini-1.5-flash', contents=full_prompt)
+                        response = model.generate_content(full_prompt)
                         ai_reply = response.text.strip()
                     else:
                         ai_reply = "⚠️ Please set your Groq or Gemini API Key in Settings to use the AI Assistant."
