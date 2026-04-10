@@ -40,7 +40,7 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
 
-# --- AI IMPORTS (UPDATED TO NEW GENAI SDK) ---
+# --- AI IMPORTS ---
 try:
     from google import genai
     GEMINI_AVAILABLE = True
@@ -128,7 +128,7 @@ def parse_copy_paste_time(pasted_str):
         return get_datetime_obj(parts[0].strip(), parts[1].strip())
     return None
 
-# --- UI STYLE (ULTIMATE GLASSMORPHISM) ---
+# --- UI STYLE ---
 st.markdown("""
     <style>
     html { scroll-behavior: smooth; }
@@ -142,8 +142,7 @@ st.markdown("""
     
     [data-testid="stMetric"] { background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(16px) !important; border-radius: 20px !important; padding: 20px 10px !important; text-align: center !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important; }
     [data-testid="stMetricValue"] { font-size: 2.2rem !important; font-weight: 900 !important; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    [data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 700 !important; opacity: 0.8 !important; color: #E0E0E0 !important; }
-
+    
     .stButton > button { border-radius: 25px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 10px 20px !important; font-weight: 800 !important; letter-spacing: 0.5px !important; width: 100% !important; background: rgba(255, 255, 255, 0.05) !important; color: #FFFFFF !important; backdrop-filter: blur(10px) !important; transition: all 0.3s ease !important; }
     .stButton > button:hover { transform: translateY(-3px) !important; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25) !important; border: 1px solid #10B981 !important; }
     .stButton > button[kind="primary"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: white !important; border: none !important; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4) !important; }
@@ -214,48 +213,48 @@ if not SUPABASE_AVAILABLE:
     st.error("⚠️ Supabase is not installed! Run: `pip install supabase` in your terminal.")
     st.stop()
 
-# 🌟 CLEAN NATIVE LOGIN SCREEN 🌟
+# 🌟 CLEAN NATIVE LOGIN SCREEN (NO EMPTY HTML BOXES) 🌟
 if not st.session_state.logged_in:
-    st.markdown("<br><br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col2:
-        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
-        img_bytes = get_image_bytes("logo.png")
-        if img_bytes: st.image(img_bytes, width=120)
-        else: st.markdown("<h1 style='font-size: 60px; margin: 0;'>🚀</h1>", unsafe_allow_html=True)
-        st.markdown("<h2 style='font-weight:900; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>NWOP CLOUD</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #A0A0A0; font-size: 14px;'>Enterprise Authentication</p>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        in_sb_url = st.text_input("Supabase Project URL", value=st.session_state.sb_url, placeholder="https://xyz.supabase.co")
-        in_sb_key = st.text_input("Supabase Anon Key", type="password", value=st.session_state.sb_key, placeholder="ey...")
-        st.markdown("<hr style='border:1px solid rgba(255,255,255,0.1); margin: 15px 0;'>", unsafe_allow_html=True)
-        
-        in_email = st.text_input("Email", value=st.session_state.sb_email, placeholder="admin@domain.com")
-        in_password = st.text_input("Password", type="password", value=st.session_state.sb_password, placeholder="••••••••")
-        st.markdown("<br>", unsafe_allow_html=True)
-        
-        if st.button("Unlock Dashboard", type="primary"):
-            if not in_sb_url or not in_sb_key or not in_email or not in_password:
-                st.error("❌ All fields are required!")
-            else:
-                try:
-                    supabase: Client = create_client(in_sb_url, in_sb_key)
-                    res = supabase.auth.sign_in_with_password({"email": in_email, "password": in_password})
-                    if res.user:
-                        save_local_auth(in_sb_url, in_sb_key, in_email, in_password)
-                        st.session_state.supabase = supabase
-                        st.session_state.user = res.user
-                        st.session_state.sb_url = in_sb_url
-                        st.session_state.sb_key = in_sb_key
-                        st.session_state.sb_email = in_email
-                        st.session_state.sb_password = in_password
-                        st.session_state.logged_in = True
-                        st.rerun()
-                except Exception as e:
-                    st.error(f"❌ Auth Failed: {e}")
+    st.markdown("<br><br><br>", unsafe_allow_html=True)
+    _, col, _ = st.columns([1, 1.5, 1])
+    with col:
+        # Container style without breaking widgets
+        with st.container(border=True):
+            st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+            img_bytes = get_image_bytes("logo.png")
+            if img_bytes: st.image(img_bytes, width=120)
+            else: st.markdown("<h1 style='font-size: 60px; margin: 0;'>🚀</h1>", unsafe_allow_html=True)
+            st.markdown("<h2 style='font-weight:900; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom:0;'>NWOP CLOUD</h2>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #A0A0A0; font-size: 14px;'>Enterprise Authentication</p>", unsafe_allow_html=True)
+            st.markdown("</div><br>", unsafe_allow_html=True)
             
-        st.markdown("<div class='dev-badge'>Developed by <b>Nazrul Rana</b><br>v51.0 Flawless Stable Core</div>", unsafe_allow_html=True)
+            in_sb_url = st.text_input("Supabase Project URL", value=st.session_state.sb_url, placeholder="https://xyz.supabase.co")
+            in_sb_key = st.text_input("Supabase Anon Key", type="password", value=st.session_state.sb_key, placeholder="ey...")
+            in_email = st.text_input("Email", value=st.session_state.sb_email, placeholder="admin@domain.com")
+            in_password = st.text_input("Password", type="password", value=st.session_state.sb_password, placeholder="••••••••")
+            st.write("")
+            
+            if st.button("Unlock Dashboard", type="primary", use_container_width=True):
+                if not in_sb_url or not in_sb_key or not in_email or not in_password:
+                    st.error("❌ All fields are required!")
+                else:
+                    try:
+                        supabase: Client = create_client(in_sb_url, in_sb_key)
+                        res = supabase.auth.sign_in_with_password({"email": in_email, "password": in_password})
+                        if res.user:
+                            save_local_auth(in_sb_url, in_sb_key, in_email, in_password)
+                            st.session_state.supabase = supabase
+                            st.session_state.user = res.user
+                            st.session_state.sb_url = in_sb_url
+                            st.session_state.sb_key = in_sb_key
+                            st.session_state.sb_email = in_email
+                            st.session_state.sb_password = in_password
+                            st.session_state.logged_in = True
+                            st.rerun()
+                    except Exception as e:
+                        st.error(f"❌ Auth Failed: {e}")
+                
+            st.markdown("<div class='dev-badge'>Developed by <b>Nazrul Rana</b><br>v52.1 Perfect Sync Edition</div>", unsafe_allow_html=True)
     st.stop()
 
 # ==========================================
@@ -347,7 +346,6 @@ def extract_order_details(msg_dict):
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
     body = parts[1] if len(parts) > 1 else text
     
-    # 🌟 Identify System Messages
     if is_whatsapp_system_message(body):
         return {"status": "ignored", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"], "Text": raw_text, "Reason": "Auto-generated System Message", "id": str(uuid.uuid4())}
     
@@ -456,7 +454,7 @@ def extract_order_details(msg_dict):
         "RawText": raw_text, "Method": "⚙️ Regex"
     }
 
-# 🌟 AI ANALYZE (SINGLE ORDER RECOVERY) 🌟
+# 🌟 AI ANALYZE (SINGLE ORDER RECOVERY - GOOGLE.GENAI) 🌟
 def analyze_single_order(raw_text, engine, groq_key, gem_key):
     prompt = f"""
     Extract order details from this RAW WhatsApp message perfectly.
@@ -485,7 +483,9 @@ def analyze_single_order(raw_text, engine, groq_key, gem_key):
             text = re.sub(r'^```json\s*|\s*```$', '', response.text.strip(), flags=re.IGNORECASE|re.MULTILINE).strip()
             match = re.search(r'\{[\s\S]*\}', text)
             if match: return json.loads(match.group(0))
-    except: return None
+    except Exception as e:
+        print(f"AI Error: {e}")
+        return None
 
 # 🌟 AI VISION ENGINE (GOOGLE.GENAI SDK) 🌟
 def extract_from_image_vision(image_file, api_key):
@@ -508,7 +508,7 @@ def extract_from_image_vision(image_file, api_key):
         st.error(f"Vision API Error: {e}")
         return None
 
-# 🌟 PATHAO API (AUTO-RESOLVES AREA BY AI) 🌟
+# 🌟 PATHAO API (SUPERCHARGED INCOMPLETE ADDRESS DETECTOR) 🌟
 def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, password):
     try:
         token_url = "https://api-hermes.pathao.com/aladdin/api/v1/issue-token"
@@ -542,21 +542,30 @@ def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, pa
             
             is_incomplete = False
             str_resp = order_res.text.replace(" ", "")
-            if ('"city_id":1' in str_resp and '"zone_id":1' in str_resp) or ('"recipient_city":1' in str_resp and '"recipient_zone":1' in str_resp):
+            
+            # Check Creation Response
+            if ('"city_id":1' in str_resp or '"city_id":"1"' in str_resp) and ('"zone_id":1' in str_resp or '"zone_id":"1"' in str_resp):
                 is_incomplete = True
                 
+            # If not caught in creation, fetch full details and check literal strings
             if not is_incomplete and cons_id != 'Success':
                 try:
                     info_res = requests.get(f"https://api-hermes.pathao.com/aladdin/api/v1/orders/{cons_id}", headers=headers, timeout=5)
-                    str_info = info_res.text.replace(" ", "")
-                    if ('"city_id":1' in str_info and '"zone_id":1' in str_info) or ('"recipient_city":1' in str_info and '"recipient_zone":1' in str_info):
+                    raw_text = info_res.text
+                    str_info = raw_text.replace(" ", "")
+                    
+                    if ('"city_id":1' in str_info or '"city_id":"1"' in str_info) and ('"zone_id":1' in str_info or '"zone_id":"1"' in str_info):
+                        is_incomplete = True
+                    elif ('"recipient_city":1' in str_info or '"recipient_city":"1"' in str_info) and ('"recipient_zone":1' in str_info or '"recipient_zone":"1"' in str_info):
+                        is_incomplete = True
+                    elif "Banani" in raw_text and ("Road 01" in raw_text or "Road 1" in raw_text or "Road 0" in raw_text):
                         is_incomplete = True
                 except: pass
                 
-            final_note = f"{cons_id}"
-            if is_incomplete: final_note += " ⚠️ Incomplete (Dhaka, Banani)"
+            if is_incomplete:
+                return "INCOMPLETE", f"{cons_id}"
             
-            return True, final_note
+            return True, f"{cons_id}"
         else: return False, f"Pathao Error: {order_res.json().get('message', 'Invalid Entry')}"
     except Exception as e: return False, f"Connection Error: {str(e)}"
 
@@ -592,7 +601,7 @@ def generate_excel_bytes(orders_list, sheet_date, product_list):
         workbook = writer.book
         worksheet = writer.sheets['Orders']
         
-        status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked,Sent to Pathao,Error"', allow_blank=True)
+        status_dv = DataValidation(type="list", formula1='"Pending,OK,Canceled,Talked,Not Picked,Sent to Pathao,Error,Incomplete"', allow_blank=True)
         worksheet.add_data_validation(status_dv)
         status_dv.add('H2:H10000') 
         
@@ -614,12 +623,14 @@ def generate_excel_bytes(orders_list, sheet_date, product_list):
             status_val = str(row[7].value).strip()
             note_val = str(row[8].value).strip()
             
-            is_sent = (status_val == "Sent to Pathao") or ("Pathao ID" in note_val)
+            is_sent = (status_val == "Sent to Pathao") or ("Pathao ID" in note_val and status_val != "Incomplete")
             is_not_blender = (prod_val != "electric blender" and prod_val != "silver crest electric blender")
+            is_incomplete = (status_val == "Incomplete")
             
             for cell in row:
                 cell.border, cell.alignment = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')), Alignment(vertical="center")
                 if cell.column == 1: cell.fill, cell.font, cell.alignment = sno_fill, Font(bold=True, color="FFFFFF"), Alignment(horizontal="center", vertical="center")
+                elif is_incomplete: cell.fill, cell.font = PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), Font(color="9C5700", bold=True)
                 elif is_sent: cell.fill, cell.font = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), Font(color="9C0006")
                 elif is_not_blender: cell.fill = green_row_fill
 
@@ -627,6 +638,7 @@ def generate_excel_bytes(orders_list, sheet_date, product_list):
         worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Pending"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
         worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Sent to Pathao"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
         worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Canceled"'], fill=PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid"), font=Font(color="9C0006")))
+        worksheet.conditional_formatting.add('H2:H10000', CellIsRule(operator='equal', formula=['"Incomplete"'], fill=PatternFill(start_color="FFEB9C", end_color="FFEB9C", fill_type="solid"), font=Font(color="9C5700")))
         
         for col in worksheet.columns:
             max_len = 0
@@ -674,7 +686,6 @@ with tab_workspace:
         target_date_str, start_str, end_str = "", "", ""
 
         now = datetime.now(BD_TZ)
-        # WINDOWS SAFE DATE FORMAT
         safe_date_format = f"{now.month}/{now.day}/{now.strftime('%y')}"
 
         if filter_type == "Specific Date": target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", safe_date_format)
@@ -685,7 +696,7 @@ with tab_workspace:
         uploaded_file = st.file_uploader("📂 Upload WhatsApp Chat (.txt)", type="txt")
 
         if uploaded_file:
-            if st.button("▶️ Start Regex Extraction", type="primary"):
+            if st.button("▶️ Start Regex Extraction", type="primary", use_container_width=True):
                 with st.spinner("Processing file with Base Regex Core..."):
                     try:
                         content = uploaded_file.read().decode("utf-8").replace('\u200e', '').replace('\u200f', '')
@@ -762,7 +773,7 @@ with tab_workspace:
             safe_date_format = f"{now.month}/{now.day}/{now.strftime('%y')}"
             start_time_str = st.text_input("⏱️ Scrape From Exact Time (Copy-Paste):", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else f"[{safe_date_format}, 7:16:42 PM]")
 
-            if st.button("🚀 Launch WhatsApp & Fetch Orders", type="primary"):
+            if st.button("🚀 Launch WhatsApp & Fetch Orders", type="primary", use_container_width=True):
                 target_limit_dt = parse_copy_paste_time(start_time_str)
                 if not target_limit_dt:
                     st.error("⚠️ Start Time-এর ফরম্যাট ভুল! ব্র্যাকেট সহ ঠিকমতো কপি-পেস্ট করো।")
@@ -862,7 +873,8 @@ with tab_workspace:
                                             time_str = parts[0] if ':' in parts[0] else parts[1]
                                             
                                             raw_msg_constructed = f"[{date_str}, {time_str}] {sender} {msg_text}"
-                                            filtered_messages.append({"date_obj": dt_obj, "date_str": date_str, "time_str": time_str, "msg_dt": msg_dt, "text": raw_msg_constructed})
+                                            if not is_whatsapp_system_message(raw_msg_constructed):
+                                                filtered_messages.append({"date_obj": dt_obj, "date_str": date_str, "time_str": time_str, "msg_dt": msg_dt, "text": raw_msg_constructed})
                                 except: pass
                             driver.quit()
                             
@@ -976,7 +988,6 @@ with tab_workspace:
                     for dob in doubtful_orders:
                         o_id = dob['id']
                         issue_text = ', '.join(dob['issues'])
-                        # 🌟 FIXED: THE FIX BUTTON IS BACK 🌟
                         st.markdown(f"""
                             <div class="doubt-card">
                                 <div style="flex: 1;">
@@ -1075,7 +1086,7 @@ with tab_workspace:
                         st.session_state.all_orders[i]['Price'] = new_price
                         st.session_state.all_orders[i]['Quantity'] = new_qty
                         
-                        status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked", "Sent to Pathao", "Error"]
+                        status_list = ["Pending", "OK", "Canceled", "Talked", "Not Picked", "Sent to Pathao", "Error", "Incomplete"]
                         current_idx = status_list.index(row.get('Approval','Pending')) if row.get('Approval') in status_list else 0
                         new_status = st.selectbox("Status:", status_list, index=current_idx, key=f"status_{o_id}")
                         st.session_state.all_orders[i]['Approval'] = new_status
@@ -1091,7 +1102,7 @@ with tab_workspace:
                             elif new_price == 0: st.error("⚠️ Price cannot be 0.")
                             else:
                                 with st.spinner("Connecting to Pathao API..."):
-                                    success, pathao_msg = send_to_pathao_api(
+                                    success_status, pathao_msg = send_to_pathao_api(
                                         st.session_state.all_orders[i], 
                                         st.session_state.pathao_client_id, 
                                         st.session_state.pathao_client_secret, 
@@ -1099,15 +1110,21 @@ with tab_workspace:
                                         st.session_state.pathao_email,
                                         st.session_state.pathao_password
                                     )
-                                    if success:
+                                    if success_status == True:
                                         st.session_state.all_orders[i]['Approval'] = "Sent to Pathao"
                                         st.session_state.all_orders[i]['Note'] = f"✅ Pathao ID: {pathao_msg}"
-                                        
+                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4()) 
                                         log_task(f"Pushed order {new_name} to Pathao. ID: {pathao_msg}")
                                         st.success(f"Success! Consignment ID: {pathao_msg}")
-                                        
-                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4())
                                         time.sleep(1)
+                                        st.rerun()
+                                    elif success_status == "INCOMPLETE":
+                                        st.session_state.all_orders[i]['Approval'] = "Incomplete"
+                                        st.session_state.all_orders[i]['Note'] = f"⚠️ ID: {pathao_msg} (Dhaka, Banani)"
+                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4()) 
+                                        log_task(f"Pushed order {new_name} to Pathao (INCOMPLETE). ID: {pathao_msg}")
+                                        st.warning(f"Created but INCOMPLETE: {pathao_msg}")
+                                        time.sleep(2)
                                         st.rerun()
                                     else: st.error(pathao_msg)
                                         
@@ -1159,12 +1176,11 @@ with tab_workspace:
             
             col_d1, col_d2 = st.columns(2)
             with col_d1:
-                st.download_button(label="📥 Download Excel File", data=excel_bytes, file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+                st.download_button(label="📥 Download Excel File", data=excel_bytes, file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True)
             with col_d2:
                 csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
-                st.download_button(label="📊 Download CSV (For Google Sheets)", data=csv_bytes, file_name=csv_filename, mime="text/csv", type="secondary")
+                st.download_button(label="📊 Download CSV (For Google Sheets)", data=csv_bytes, file_name=csv_filename, mime="text/csv", type="secondary", use_container_width=True)
 
-        # 🌟 JUNK MESSAGES (ORIGINAL MESSAGE INCLUDED) 🌟
         if suspected_msgs:
             st.markdown("<br>", unsafe_allow_html=True)
             with st.expander(f"🚨 SUSPECTED MISSED ORDERS ({len(suspected_msgs)} items)", expanded=True):
@@ -1225,18 +1241,16 @@ with tab_bulk_pathao:
             if bulk_file.name.endswith('.csv'): b_df = pd.read_csv(bulk_file, dtype=str)
             else: b_df = pd.read_excel(bulk_file, sheet_name="Orders", dtype=str)
             
-            # 🌟 NAN & EMPTY ROW RECOVERY 🌟
             b_df.dropna(how='all', inplace=True)
             b_df = b_df.rename(columns={'Sl.': 'SNO', 'price': 'Price', 'approved': 'Approval'})
             
             bulk_orders = []
             for _, row in b_df.iterrows():
-                # Skip if row is completely empty
                 if pd.isna(row.get('Phone Number')) and pd.isna(row.get('Name')): continue
                 
                 appr = str(row.get('Approval', 'Pending'))
                 note = str(row.get('Note', ''))
-                is_sent = "Sent to Pathao" in appr or "Pathao ID" in note
+                is_sent = "Sent to Pathao" in appr or ("Pathao ID" in note and "Incomplete" not in appr)
                 
                 raw_ph = str(row.get('Phone Number', 'N/A')).replace('.0', '').strip()
                 if raw_ph.lower() == 'nan': raw_ph = 'N/A'
@@ -1295,7 +1309,7 @@ with tab_bulk_pathao:
             
             col1, col2 = st.columns([1, 4])
             with col1:
-                start_send = st.button("🚀 Confirm & Send to Pathao", type="primary")
+                start_send = st.button("🚀 Confirm & Send to Pathao", type="primary", use_container_width=True)
                 
             if start_send:
                 if not st.session_state.pathao_client_id or not st.session_state.pathao_email:
@@ -1329,7 +1343,7 @@ with tab_bulk_pathao:
         
         col1, col2 = st.columns([1, 5])
         with col1:
-            if st.button("🛑 Cancel / Stop Sending", type="secondary"):
+            if st.button("🛑 Cancel / Stop Sending", type="secondary", use_container_width=True):
                 st.session_state.is_sending_bulk = False
                 for o in st.session_state.bulk_sending_list:
                     o['Approval'] = "Canceled"
@@ -1347,11 +1361,15 @@ with tab_bulk_pathao:
                     order['Approval'] = "Error"
                     order['Note'] = "❌ Missing Phone or Price"
                 else:
-                    success, msg = send_to_pathao_api(order, st.session_state.pathao_client_id, st.session_state.pathao_client_secret, st.session_state.pathao_store_id, st.session_state.pathao_email, st.session_state.pathao_password)
-                    if success:
+                    success_status, msg = send_to_pathao_api(order, st.session_state.pathao_client_id, st.session_state.pathao_client_secret, st.session_state.pathao_store_id, st.session_state.pathao_email, st.session_state.pathao_password)
+                    if success_status == True:
                         order['Approval'] = "Sent to Pathao"
                         order['Note'] = f"✅ Pathao ID: {msg}"
                         order['is_sent'] = True
+                    elif success_status == "INCOMPLETE":
+                        order['Approval'] = "Incomplete"
+                        order['Note'] = f"⚠️ ID: {msg} (Dhaka, Banani)"
+                        order['is_sent'] = True 
                     else:
                         order['Approval'] = "Error"
                         order['Note'] = f"❌ {msg}"
@@ -1375,9 +1393,9 @@ with tab_bulk_pathao:
         
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            st.download_button(label="📥 Download Updated Excel (Red Marked)", data=bulk_excel, file_name=bulk_filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+            st.download_button(label="📥 Download Updated Excel (Red Marked)", data=bulk_excel, file_name=bulk_filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True)
         with col_b2:
-            st.download_button(label="📊 Download Updated CSV", data=bulk_csv, file_name=bulk_filename.replace('.xlsx', '.csv'), mime="text/csv", type="secondary")
+            st.download_button(label="📊 Download Updated CSV", data=bulk_csv, file_name=bulk_filename.replace('.xlsx', '.csv'), mime="text/csv", type="secondary", use_container_width=True)
 
 # 🌟 NATIVE CHAT UI AI ASSISTANT TAB 🌟
 with tab_ai_assistant:
@@ -1440,11 +1458,10 @@ with tab_ai_assistant:
                         response = client.chat.completions.create(messages=api_messages, model=model_use, temperature=0.6)
                         ai_reply = response.choices[0].message.content
                     elif st.session_state.gemini_api_key:
-                        genai.configure(api_key=st.session_state.gemini_api_key)
-                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
+                        client = genai.Client(api_key=st.session_state.gemini_api_key)
                         chat_history_str = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
                         full_prompt = f"{system_prompt}\n\nChat History:\n{chat_history_str}"
-                        response = model.generate_content(full_prompt)
+                        response = client.models.generate_content(model='gemini-1.5-flash', contents=full_prompt)
                         ai_reply = response.text.strip()
                     else:
                         ai_reply = "⚠️ Please set your Groq or Gemini API Key in Settings to use the AI Assistant."
@@ -1498,9 +1515,9 @@ with tab_merge:
                 
                 col_md1, col_md2 = st.columns(2)
                 with col_md1:
-                    st.download_button(label="📥 Download Master Excel", data=bulk_excel, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
+                    st.download_button(label="📥 Download Master Excel", data=bulk_excel, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True)
                 with col_md2:
-                    st.download_button(label="📊 Download CSV (For Google Sheets)", data=bulk_csv, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv", mime="text/csv", type="secondary")
+                    st.download_button(label="📊 Download CSV (For Google Sheets)", data=bulk_csv, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv", mime="text/csv", type="secondary", use_container_width=True)
             except Exception as e:
                 st.error(f"Error processing files: {e}. Please make sure you uploaded valid NWOP Excel files.")
 
@@ -1518,7 +1535,7 @@ with tab_history:
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v51.0 (The Perfect Stable Core)")
+    st.markdown("**Version:** NWOP v52.1 (The Final UI & Sync Fix)")
     
     st.markdown("### ⚡ AI Engine Keys")
     new_api_key = st.text_input("Groq API Key (Speed & High Quota)", type="password", value=st.session_state.groq_api_key, placeholder="gsk_...")
@@ -1578,6 +1595,6 @@ with tab_about:
     * **WhatsApp:** 01641434000
     * **Facebook:** [nazrulranaxD.s](https://www.facebook.com/nazrulranaxD.s)
     * **LinkedIn:** [nazrulhuda](https://www.linkedin.com/in/nazrulhuda/)
-    * **Version:** 51.0 (The Perfect Stable Core)
+    * **Version:** 52.1 (The Final UI & Sync Fix)
     """)
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
