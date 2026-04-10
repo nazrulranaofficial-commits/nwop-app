@@ -8,3 +8,4 @@ groq
 google-genai
 selenium
 webdriver-manager
+supabase
