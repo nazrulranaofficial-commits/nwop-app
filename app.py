@@ -8,12 +8,23 @@ import os
 import pytz
 import uuid
 import requests
+import warnings
 from io import BytesIO
-from datetime import datetime, date, time as dt_time
+from datetime import datetime, timedelta, date, time as dt_time
 from openpyxl.styles import PatternFill, Font, Alignment, Border, Side
 from openpyxl.worksheet.datavalidation import DataValidation
 from openpyxl.formatting.rule import CellIsRule
 from PIL import Image
+
+# Suppress annoying Openpyxl warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
+
+# --- SUPABASE IMPORT ---
+try:
+    from supabase import create_client, Client
+    SUPABASE_AVAILABLE = True
+except ImportError:
+    SUPABASE_AVAILABLE = False
 
 # --- SELENIUM IMPORTS ---
 try:
@@ -29,7 +40,7 @@ try:
 except ImportError:
     SELENIUM_AVAILABLE = False
 
-# --- AI IMPORTS ---
+# --- AI IMPORTS (UPDATED TO NEW GENAI SDK) ---
 try:
     from google import genai
     GEMINI_AVAILABLE = True
@@ -58,8 +69,10 @@ def bn_to_en_digits(text):
     return str(text).translate(str.maketrans('০১২৩৪৫৬৭৮৯', '0123456789'))
 
 def format_phone_number(raw_phone):
-    if not raw_phone or str(raw_phone).strip().upper() == "N/A": return "N/A"
-    clean = re.sub(r'\D', '', bn_to_en_digits(raw_phone))
+    if not raw_phone: return "N/A"
+    rp_str = str(raw_phone).strip().lower()
+    if rp_str in ["n/a", "nan", ""]: return "N/A"
+    clean = re.sub(r'\D', '', bn_to_en_digits(rp_str))
     if len(clean) < 10: return "N/A"
     if clean.startswith('880') and len(clean) > 11: clean = clean[2:] 
     elif clean.startswith('88') and len(clean) > 10: clean = clean[2:]
@@ -115,81 +128,188 @@ def parse_copy_paste_time(pasted_str):
         return get_datetime_obj(parts[0].strip(), parts[1].strip())
     return None
 
-# --- HISTORY & SETTINGS ---
-HISTORY_FILE = "nwop_history.json"
+# --- UI STYLE (ULTIMATE GLASSMORPHISM) ---
+st.markdown("""
+    <style>
+    html { scroll-behavior: smooth; }
+    .stApp { background-color: #090B10 !important; font-family: 'Inter', sans-serif; color: #E0E0E0; }
+    .block-container { padding-top: 2rem !important; padding-bottom: 3rem !important; max-width: 1100px !important; }
+    [data-testid="stToolbar"] a { display: none !important; } footer { display: none !important; }
+
+    [data-testid="stExpander"] { background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(18px) !important; border-radius: 18px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.3) !important; margin-bottom: 18px !important; transition: all 0.3s ease-in-out; }
+    [data-testid="stExpander"]:hover { box-shadow: 0 10px 30px 0 rgba(16, 185, 129, 0.15) !important; border: 1px solid rgba(16, 185, 129, 0.25) !important; }
+    [data-testid="stExpander"] > details > summary { padding: 18px !important; font-weight: 800 !important; font-size: 1.1rem !important; color: #FFFFFF !important; }
+    
+    [data-testid="stMetric"] { background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(16px) !important; border-radius: 20px !important; padding: 20px 10px !important; text-align: center !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important; }
+    [data-testid="stMetricValue"] { font-size: 2.2rem !important; font-weight: 900 !important; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    [data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 700 !important; opacity: 0.8 !important; color: #E0E0E0 !important; }
+
+    .stButton > button { border-radius: 25px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 10px 20px !important; font-weight: 800 !important; letter-spacing: 0.5px !important; width: 100% !important; background: rgba(255, 255, 255, 0.05) !important; color: #FFFFFF !important; backdrop-filter: blur(10px) !important; transition: all 0.3s ease !important; }
+    .stButton > button:hover { transform: translateY(-3px) !important; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25) !important; border: 1px solid #10B981 !important; }
+    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: white !important; border: none !important; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4) !important; }
+
+    .doubt-card { padding: 15px 20px; border-left: 5px solid #EF4444; background: rgba(239, 68, 68, 0.1); border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: white; }
+    .doubt-card .fix-btn { background: linear-gradient(135deg, #EF4444, #DC2626); color: white !important; padding: 8px 18px; border-radius: 20px; text-decoration: none; font-weight: 800; font-size: 0.9rem; transition: 0.3s; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
+
+    .wa-bubble { background: linear-gradient(135deg, rgba(7, 94, 84, 0.95), rgba(18, 140, 126, 0.85)); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2); color: white; padding: 18px 22px; border-radius: 20px; border-top-left-radius: 0px; max-width: 95%; box-shadow: 0 8px 25px rgba(0,0,0,0.4); margin-bottom: 25px; line-height: 1.6; }
+
+    .stTabs [data-baseweb="tab-list"] { background-color: transparent !important; gap: 10px !important; padding-bottom: 15px !important; }
+    .stTabs [data-baseweb="tab"] { background: rgba(255, 255, 255, 0.05) !important; border-radius: 30px !important; padding: 10px 25px !important; border: 1px solid rgba(255,255,255,0.1) !important; font-weight: 700 !important; font-size: 1rem !important; color: #E0E0E0 !important; }
+    .stTabs [aria-selected="true"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: #FFFFFF !important; border: none !important; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4) !important; }
+
+    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] { border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 12px !important; background: rgba(255, 255, 255, 0.05) !important; color: white !important; font-weight: 500 !important; }
+    .stTextInput input:focus, .stNumberInput input:focus { border: 1px solid #10B981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important; background: rgba(0,0,0,0.4) !important; }
+
+    .dev-badge { margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: #A0A0A0; text-align: center;}
+    .stChatMessage { background: rgba(255,255,255,0.03) !important; border-radius: 15px !important; padding: 15px !important; margin-bottom: 10px !important; border: 1px solid rgba(255,255,255,0.05) !important; }
+
+    @media (max-width: 768px) { .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; } .doubt-card { flex-direction: column; align-items: flex-start; gap: 15px; } }
+    </style>
+""", unsafe_allow_html=True)
+
+# ==========================================
+# 🔐 LOCAL AUTH VAULT (AUTO-SAVE CREDENTIALS)
+# ==========================================
+AUTH_VAULT_FILE = "nwop_auth.json"
+
+def load_local_auth():
+    if os.path.exists(AUTH_VAULT_FILE):
+        try:
+            with open(AUTH_VAULT_FILE, "r") as f: return json.load(f)
+        except: return {}
+    return {}
+
+def save_local_auth(url, key, email, password):
+    try:
+        with open(AUTH_VAULT_FILE, "w") as f:
+            json.dump({"sb_url": url, "sb_key": key, "sb_email": email, "sb_password": password}, f)
+    except: pass
+
+auth_data = load_local_auth()
+if 'sb_url' not in st.session_state: st.session_state.sb_url = auth_data.get('sb_url', '')
+if 'sb_key' not in st.session_state: st.session_state.sb_key = auth_data.get('sb_key', '')
+if 'sb_email' not in st.session_state: st.session_state.sb_email = auth_data.get('sb_email', '')
+if 'sb_password' not in st.session_state: st.session_state.sb_password = auth_data.get('sb_password', '')
+
+# ==========================================
+# 🔐 AUTO-LOGIN VIA STREAMLIT SECRETS 🔐
+# ==========================================
+if 'logged_in' not in st.session_state: 
+    st.session_state.logged_in = False
+    if SUPABASE_AVAILABLE:
+        try:
+            if hasattr(st, "secrets") and "SUPABASE_URL" in st.secrets and "SUPABASE_KEY" in st.secrets:
+                supabase: Client = create_client(st.secrets["SUPABASE_URL"], st.secrets["SUPABASE_KEY"])
+                res = supabase.auth.sign_in_with_password({
+                    "email": st.secrets.get("SUPABASE_EMAIL", ""), 
+                    "password": st.secrets.get("SUPABASE_PASSWORD", "")
+                })
+                if res.user:
+                    st.session_state.supabase = supabase
+                    st.session_state.user = res.user
+                    st.session_state.logged_in = True
+        except Exception: pass
+
+if not SUPABASE_AVAILABLE:
+    st.error("⚠️ Supabase is not installed! Run: `pip install supabase` in your terminal.")
+    st.stop()
+
+# 🌟 CLEAN NATIVE LOGIN SCREEN 🌟
+if not st.session_state.logged_in:
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown("<div style='text-align: center;'>", unsafe_allow_html=True)
+        img_bytes = get_image_bytes("logo.png")
+        if img_bytes: st.image(img_bytes, width=120)
+        else: st.markdown("<h1 style='font-size: 60px; margin: 0;'>🚀</h1>", unsafe_allow_html=True)
+        st.markdown("<h2 style='font-weight:900; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>NWOP CLOUD</h2>", unsafe_allow_html=True)
+        st.markdown("<p style='color: #A0A0A0; font-size: 14px;'>Enterprise Authentication</p>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        in_sb_url = st.text_input("Supabase Project URL", value=st.session_state.sb_url, placeholder="https://xyz.supabase.co")
+        in_sb_key = st.text_input("Supabase Anon Key", type="password", value=st.session_state.sb_key, placeholder="ey...")
+        st.markdown("<hr style='border:1px solid rgba(255,255,255,0.1); margin: 15px 0;'>", unsafe_allow_html=True)
+        
+        in_email = st.text_input("Email", value=st.session_state.sb_email, placeholder="admin@domain.com")
+        in_password = st.text_input("Password", type="password", value=st.session_state.sb_password, placeholder="••••••••")
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if st.button("Unlock Dashboard", type="primary"):
+            if not in_sb_url or not in_sb_key or not in_email or not in_password:
+                st.error("❌ All fields are required!")
+            else:
+                try:
+                    supabase: Client = create_client(in_sb_url, in_sb_key)
+                    res = supabase.auth.sign_in_with_password({"email": in_email, "password": in_password})
+                    if res.user:
+                        save_local_auth(in_sb_url, in_sb_key, in_email, in_password)
+                        st.session_state.supabase = supabase
+                        st.session_state.user = res.user
+                        st.session_state.sb_url = in_sb_url
+                        st.session_state.sb_key = in_sb_key
+                        st.session_state.sb_email = in_email
+                        st.session_state.sb_password = in_password
+                        st.session_state.logged_in = True
+                        st.rerun()
+                except Exception as e:
+                    st.error(f"❌ Auth Failed: {e}")
+            
+        st.markdown("<div class='dev-badge'>Developed by <b>Nazrul Rana</b><br>v51.0 Flawless Stable Core</div>", unsafe_allow_html=True)
+    st.stop()
+
+# ==========================================
+# ☁️ SUPABASE DATA SYNC LOGIC ☁️
+# ==========================================
 DEFAULT_PRODUCTS = ['Silver Crest Electric Blender', 'Electronic Grinder', 'Electric Blender', 'Vita Gold', 'Rice Cooker', 'Sound Box', 'Nima Blender', 'E-9 Pro', 'Self Stick', 'Shoe Rack', 'Light', 'Sky', 'Black', 'Rack', 'Green', 'Pink', 'Navy', 'Cream', 'Olive', 'White', 'Bottle', 'Check Manually']
 
-# ==========================================
-# ☁️ CLOUD DATABASE SETTINGS (JSONBin.io) ☁️
-# ==========================================
-JSONBIN_API_KEY = ""  # Optional: Enter your X-Master-Key here
-JSONBIN_BIN_ID = ""   # Optional: Enter your Bin ID here
-# ==========================================
+def load_supabase_profile():
+    try:
+        res = st.session_state.supabase.table('nwop_profiles').select('settings').eq('user_id', st.session_state.user.id).execute()
+        if res.data: return res.data[0]['settings']
+        else:
+            def_settings = {
+                "history": [], "last_checkpoint": "No record yet", "groq_api_key": "", "gemini_api_key": "",
+                "pathao_client_id": "", "pathao_client_secret": "", "pathao_store_id": "", "pathao_email": "", 
+                "pathao_password": "", "learned_products": []
+            }
+            st.session_state.supabase.table('nwop_profiles').insert({'user_id': st.session_state.user.id, 'settings': def_settings}).execute()
+            return def_settings
+    except Exception as e:
+        return {}
 
-def load_data():
-    if JSONBIN_API_KEY and JSONBIN_BIN_ID:
-        url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}/latest"
-        headers = {'X-Master-Key': JSONBIN_API_KEY}
-        try:
-            req = requests.get(url, headers=headers, timeout=10)
-            if req.status_code == 200:
-                data = req.json().get('record', {})
-                return (
-                    data.get("history", []), data.get("last_checkpoint", "No record yet"),
-                    data.get("groq_api_key", ""), data.get("gemini_api_key", ""),
-                    data.get("pathao_client_id", ""), data.get("pathao_client_secret", ""),
-                    data.get("pathao_store_id", ""), data.get("pathao_email", ""), 
-                    data.get("pathao_password", ""), data.get("learned_products", [])
-                )
-        except: pass
+def save_supabase_profile(settings_dict):
+    try:
+        st.session_state.supabase.table('nwop_profiles').update({'settings': settings_dict}).eq('user_id', st.session_state.user.id).execute()
+    except Exception as e: pass
 
-    if os.path.exists(HISTORY_FILE):
-        with open(HISTORY_FILE, "r", encoding="utf-8") as f:
-            try: 
-                data = json.load(f)
-                return (
-                    data.get("history", []), data.get("last_checkpoint", "No record yet"),
-                    data.get("groq_api_key", ""), data.get("gemini_api_key", ""),
-                    data.get("pathao_client_id", ""), data.get("pathao_client_secret", ""),
-                    data.get("pathao_store_id", ""), data.get("pathao_email", ""), 
-                    data.get("pathao_password", ""), data.get("learned_products", [])
-                )
-            except: pass
-    return [], "No record yet", "", "", "", "", "", "", "", []
+def push_order_to_supabase(order_dict):
+    try:
+        payload = {"user_id": st.session_state.user.id, "order_data": order_dict}
+        st.session_state.supabase.table('nwop_orders').insert(payload).execute()
+    except: pass
 
-def save_data(history_list, checkpoint, groq_key="", gem_key="", p_client="", p_secret="", p_store="", p_email="", p_pass="", learned_products=[]):
-    payload = {
-        "history": history_list, "last_checkpoint": checkpoint, "groq_api_key": groq_key, "gemini_api_key": gem_key,
-        "pathao_client_id": p_client, "pathao_client_secret": p_secret, "pathao_store_id": p_store,
-        "pathao_email": p_email, "pathao_password": p_pass, "learned_products": learned_products
-    }
-    if JSONBIN_API_KEY and JSONBIN_BIN_ID:
-        url = f"https://api.jsonbin.io/v3/b/{JSONBIN_BIN_ID}"
-        headers = {'X-Master-Key': JSONBIN_API_KEY, 'Content-Type': 'application/json'}
-        try: requests.put(url, json=payload, headers=headers, timeout=10)
-        except: pass
-    else:
-        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
-            json.dump(payload, f, ensure_ascii=False, indent=4)
+def auto_delete_90_days_data():
+    try:
+        ninety_days_ago = (datetime.now(BD_TZ) - timedelta(days=90)).isoformat()
+        st.session_state.supabase.table('nwop_orders').delete().lt('created_at', ninety_days_ago).execute()
+    except: pass
 
-if 'task_history' not in st.session_state:
-    hist, chk, groq_k, gem_k, p_client, p_secret, p_store, p_email, p_pass, learned_prods = load_data()
-    st.session_state.task_history = hist
-    st.session_state.last_checkpoint = chk
-    st.session_state.groq_api_key = groq_k
-    st.session_state.gemini_api_key = gem_k
-    st.session_state.pathao_client_id = p_client
-    st.session_state.pathao_client_secret = p_secret
-    st.session_state.pathao_store_id = p_store
-    st.session_state.pathao_email = p_email
-    st.session_state.pathao_password = p_pass
-    st.session_state.product_list = list(dict.fromkeys(DEFAULT_PRODUCTS + learned_prods))
+if 'profile_loaded' not in st.session_state:
+    auto_delete_90_days_data()
+    prof = load_supabase_profile()
+    st.session_state.task_history = prof.get("history", [])
+    st.session_state.last_checkpoint = prof.get("last_checkpoint", "No record yet")
+    st.session_state.groq_api_key = prof.get("groq_api_key", "")
+    st.session_state.gemini_api_key = prof.get("gemini_api_key", "")
+    st.session_state.pathao_client_id = prof.get("pathao_client_id", "")
+    st.session_state.pathao_client_secret = prof.get("pathao_client_secret", "")
+    st.session_state.pathao_store_id = prof.get("pathao_store_id", "")
+    st.session_state.pathao_email = prof.get("pathao_email", "")
+    st.session_state.pathao_password = prof.get("pathao_password", "")
+    st.session_state.product_list = list(dict.fromkeys(DEFAULT_PRODUCTS + prof.get("learned_products", [])))
+    st.session_state.profile_loaded = True
 
-# Ensure fallback values
-if 'groq_api_key' not in st.session_state: st.session_state.groq_api_key = ""
-if 'gemini_api_key' not in st.session_state: st.session_state.gemini_api_key = ""
-if 'pathao_email' not in st.session_state: st.session_state.pathao_email = ""
-if 'pathao_password' not in st.session_state: st.session_state.pathao_password = ""
 if 'analyze_engine' not in st.session_state: st.session_state.analyze_engine = "Groq: Llama 3.1 8B (Fast & Reliable)"
 if 'chat_history' not in st.session_state: st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
 if 'all_orders' not in st.session_state: st.session_state.all_orders = []
@@ -199,116 +319,44 @@ if 'sheet_date' not in st.session_state: st.session_state.sheet_date = datetime.
 if 'total_extracted_today' not in st.session_state: st.session_state.total_extracted_today = 0
 if 'is_sending_bulk' not in st.session_state: st.session_state.is_sending_bulk = False
 
+def sync_profile_to_db():
+    learned = [p for p in st.session_state.product_list if p not in DEFAULT_PRODUCTS]
+    settings_dict = {
+        "history": st.session_state.task_history, "last_checkpoint": st.session_state.last_checkpoint,
+        "groq_api_key": st.session_state.groq_api_key, "gemini_api_key": st.session_state.gemini_api_key,
+        "pathao_client_id": st.session_state.pathao_client_id, "pathao_client_secret": st.session_state.pathao_client_secret,
+        "pathao_store_id": st.session_state.pathao_store_id, "pathao_email": st.session_state.pathao_email,
+        "pathao_password": st.session_state.pathao_password, "learned_products": learned
+    }
+    save_supabase_profile(settings_dict)
+
 def learn_new_product(product_name):
     if product_name and product_name not in st.session_state.product_list:
         st.session_state.product_list.append(product_name)
-        learned = [p for p in st.session_state.product_list if p not in DEFAULT_PRODUCTS]
-        save_data(st.session_state.task_history, st.session_state.last_checkpoint, st.session_state.groq_api_key, st.session_state.gemini_api_key, st.session_state.pathao_client_id, st.session_state.pathao_client_secret, st.session_state.pathao_store_id, st.session_state.pathao_email, st.session_state.pathao_password, learned)
+        sync_profile_to_db()
 
 def log_task(task_desc):
     timestamp = datetime.now(BD_TZ).strftime("%d %b %Y, %I:%M %p")
     st.session_state.task_history.insert(0, f"✅ **{timestamp}**: {task_desc}")
-    learned = [p for p in st.session_state.product_list if p not in DEFAULT_PRODUCTS]
-    save_data(st.session_state.task_history, st.session_state.last_checkpoint, st.session_state.groq_api_key, st.session_state.gemini_api_key, st.session_state.pathao_client_id, st.session_state.pathao_client_secret, st.session_state.pathao_store_id, st.session_state.pathao_email, st.session_state.pathao_password, learned)
+    sync_profile_to_db()
 
-# --- UI STYLE (ULTIMATE GLASSMORPHISM) ---
-st.markdown("""
-    <style>
-    html { scroll-behavior: smooth; }
-    .stApp { background-color: #090B10 !important; font-family: 'Inter', sans-serif; color: #E0E0E0; }
-    .block-container { padding-top: 2rem !important; padding-bottom: 3rem !important; max-width: 1100px !important; }
-    [data-testid="stToolbar"] a { display: none !important; } footer { display: none !important; }
-
-    [data-testid="stExpander"] {
-        background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(18px) !important; -webkit-backdrop-filter: blur(18px) !important;
-        border-radius: 18px !important; border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 10px 30px 0 rgba(0, 0, 0, 0.3) !important;
-        margin-bottom: 18px !important; transition: all 0.3s ease-in-out;
-    }
-    [data-testid="stExpander"]:hover { box-shadow: 0 10px 30px 0 rgba(16, 185, 129, 0.15) !important; border: 1px solid rgba(16, 185, 129, 0.25) !important; }
-    [data-testid="stExpander"] > details > summary { padding: 18px !important; font-weight: 800 !important; font-size: 1.1rem !important; color: #FFFFFF !important; }
-    
-    [data-testid="stMetric"] {
-        background: rgba(255, 255, 255, 0.04) !important; backdrop-filter: blur(16px) !important;
-        border-radius: 20px !important; padding: 20px 10px !important; text-align: center !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3) !important;
-    }
-    [data-testid="stMetricValue"] { font-size: 2.2rem !important; font-weight: 900 !important; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-    [data-testid="stMetricLabel"] { font-size: 1rem !important; font-weight: 700 !important; opacity: 0.8 !important; color: #E0E0E0 !important; }
-
-    .stButton > button {
-        border-radius: 25px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 10px 20px !important;
-        font-weight: 800 !important; letter-spacing: 0.5px !important; width: 100% !important;
-        background: rgba(255, 255, 255, 0.05) !important; color: #FFFFFF !important;
-        backdrop-filter: blur(10px) !important; transition: all 0.3s ease !important;
-    }
-    .stButton > button:hover { transform: translateY(-3px) !important; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.25) !important; border: 1px solid #10B981 !important; }
-    .stButton > button[kind="primary"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: white !important; border: none !important; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4) !important; }
-
-    .doubt-card { padding: 15px 20px; border-left: 5px solid #EF4444; background: rgba(239, 68, 68, 0.1); border-radius: 12px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: white; }
-    .doubt-card .fix-btn { background: linear-gradient(135deg, #EF4444, #DC2626); color: white !important; padding: 8px 18px; border-radius: 20px; text-decoration: none; font-weight: 800; font-size: 0.9rem; transition: 0.3s; box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
-
-    .wa-bubble {
-        background: linear-gradient(135deg, rgba(7, 94, 84, 0.95), rgba(18, 140, 126, 0.85)); backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.2);
-        color: white; padding: 18px 22px; border-radius: 20px; border-top-left-radius: 0px; max-width: 95%; box-shadow: 0 8px 25px rgba(0,0,0,0.4); margin-bottom: 25px; line-height: 1.6;
-    }
-
-    .stTabs [data-baseweb="tab-list"] { background-color: transparent !important; gap: 10px !important; padding-bottom: 15px !important; }
-    .stTabs [data-baseweb="tab"] { background: rgba(255, 255, 255, 0.05) !important; border-radius: 30px !important; padding: 10px 25px !important; border: 1px solid rgba(255,255,255,0.1) !important; font-weight: 700 !important; font-size: 1rem !important; color: #E0E0E0 !important; }
-    .stTabs [aria-selected="true"] { background: linear-gradient(135deg, #10B981, #059669) !important; color: #FFFFFF !important; border: none !important; box-shadow: 0 5px 15px rgba(16, 185, 129, 0.4) !important; }
-
-    .stTextInput input, .stNumberInput input, .stSelectbox div[data-baseweb="select"] { border-radius: 12px !important; border: 1px solid rgba(255, 255, 255, 0.15) !important; padding: 12px !important; background: rgba(255, 255, 255, 0.05) !important; color: white !important; font-weight: 500 !important; }
-    .stTextInput input:focus, .stNumberInput input:focus { border: 1px solid #10B981 !important; box-shadow: 0 0 8px rgba(16, 185, 129, 0.4) !important; background: rgba(0,0,0,0.4) !important; }
-
-    .login-wrapper { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; }
-    .login-card { background: rgba(255, 255, 255, 0.03); backdrop-filter: blur(25px); padding: 50px; border-radius: 30px; box-shadow: 0 20px 50px rgba(0,0,0,0.5); text-align: center; border: 1px solid rgba(255, 255, 255, 0.1); width: 100%; max-width: 450px; }
-    .dev-badge { margin-top: 30px; padding-top: 20px; border-top: 1px solid rgba(255, 255, 255, 0.1); font-size: 0.85rem; color: #A0A0A0; }
-
-    @media (max-width: 768px) { .stTabs [data-baseweb="tab-list"] { overflow-x: auto; white-space: nowrap; flex-wrap: nowrap; } .login-card { padding: 30px; } .doubt-card { flex-direction: column; align-items: flex-start; gap: 15px; } }
-    </style>
-""", unsafe_allow_html=True)
-
-# --- LOGIN SYSTEM ---
-CORRECT_PASSWORD = "nwop" 
-
-if 'logged_in' not in st.session_state:
-    st.session_state.logged_in = False
-
-if not st.session_state.logged_in:
-    st.markdown("<div class='login-wrapper'>", unsafe_allow_html=True)
-    _, col_center, _ = st.columns([1, 4, 1])
-    with col_center:
-        st.markdown("<div class='login-card'>", unsafe_allow_html=True)
-        img_bytes = get_image_bytes("logo.png")
-        if img_bytes: st.image(img_bytes, width=150)
-        else: st.markdown("<h1 style='font-size: 80px; margin-bottom: 0;'>🚀</h1>", unsafe_allow_html=True)
-        st.markdown("<h2 style='font-weight:900; margin-top: 15px; background: linear-gradient(135deg, #10B981, #3B82F6); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>NWOP SYSTEM</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #A0A0A0; font-size: 14px; margin-top:-5px;'>Secure Enterprise Access</p><br>", unsafe_allow_html=True)
-        password_input = st.text_input("Master Password", type="password", label_visibility="collapsed", placeholder="Enter authorization code...")
-        st.markdown("<br>", unsafe_allow_html=True)
-        if st.button("Unlock System", type="primary"):
-            if password_input == CORRECT_PASSWORD:
-                st.session_state.logged_in = True
-                st.rerun()
-            else: st.error("❌ Access Denied! Invalid code.")
-        st.markdown("<div class='dev-badge'><b>Developed by Nazrul Rana</b><br>WhatsApp: +880164143400 | v45.0 The Perfect Engine</div></div>", unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-    st.stop()
-
-# 🌟 BASE REGEX EXTRACTOR (100% UNCHANGED CORE LOGIC) 🌟
+# 🌟 BASE REGEX EXTRACTOR (ZERO DROP EDITION) 🌟
 def extract_order_details(msg_dict):
     text = msg_dict["text"]
     raw_text = text  
     parts = re.split(r'^\[.*?\] .*?:\s', text, maxsplit=1)
     body = parts[1] if len(parts) > 1 else text
     
-    body = clean_system_messages(body)
+    # 🌟 Identify System Messages
+    if is_whatsapp_system_message(body):
+        return {"status": "ignored", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"], "Text": raw_text, "Reason": "Auto-generated System Message", "id": str(uuid.uuid4())}
     
     body_en = bn_to_en_digits(body)
     body_en = re.sub(r'(\d),(\d)', r'\1\2', body_en)
 
     status = check_message_status(body_en)
     if status == "ignored":
-        return {"status": "ignored", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"], "Text": text, "id": str(uuid.uuid4())}
+        return {"status": "ignored", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"], "Text": raw_text, "Reason": "Valid Phone Number Missing", "id": str(uuid.uuid4())}
 
     body_en = body_en.replace('<This message was edited>', ' ')
     body_en = re.sub(r'অর্ডার\s*করতে\s*[-ঃ:]*\s*', ' ', body_en, flags=re.IGNORECASE)
@@ -401,26 +449,23 @@ def extract_order_details(msg_dict):
     address = ", ".join(address_lines) if address_lines else "N/A"
     address = re.sub(r',+', ',', address); address = re.sub(r'\s*,\s*', ', ', address); address = address.strip(' ,-:;') 
 
-    expander_title = f"Order: {name} | ৳{price} | 📞 {phone} | 🕒 {msg_dict['time_str']} | ⚙️ Regex"
-
     return {
         "id": str(uuid.uuid4()), "status": "valid", "Date": msg_dict["date_str"], "Time": msg_dict["time_str"],
         "Name": name, "Phone Number": phone, "Address": address, "Product": product,
         "Quantity": quantity, "Price": price, "Approval": "Pending", "Note": "", "is_duplicate": False,
-        "RawText": raw_text, "Method": "⚙️ Regex", "Expander_Title": expander_title
+        "RawText": raw_text, "Method": "⚙️ Regex"
     }
 
 # 🌟 AI ANALYZE (SINGLE ORDER RECOVERY) 🌟
 def analyze_single_order(raw_text, engine, groq_key, gem_key):
     prompt = f"""
-    Extract missing or garbled order details from this RAW WhatsApp message perfectly.
-    
-    CRITICAL RULES (NO MISTAKES):
-    1. DO NOT TRANSLATE. Preserve exact original language and spelling.
-    2. Name: Extract the customer's name.
-    3. Address: Must contain the FULL address given (Thana, Zilla, Area, Landmarks). DO NOT omit any part! Remove prefix labels like "add:", "Name:".
-    4. Phone Number: Extract the raw phone number exactly as written.
-    5. Price: Find the final total. If it says "999+140=1139", price is 1139. Ignore commas. Do not do math.
+    Extract order details from this RAW WhatsApp message perfectly.
+    CRITICAL RULES:
+    1. KEEP ORIGINAL LANGUAGE: If the Name or Address is in Bangla, you MUST keep it exactly in Bangla. DO NOT translate to English.
+    2. Name: Extract the customer's name exactly as written.
+    3. Address: Must contain the FULL address exactly as written. DO NOT omit any part! Remove labels like "add:".
+    4. Phone Number: ONLY FOR PHONE NUMBER convert Bangla digits (০-৯) to English digits (0-9). Extract the raw phone number.
+    5. Price: Find the final total. Ignore commas. Do not do math.
     6. Quantity: Extract integer. Default 1.
     7. Product: "Silver Crest" + "Blender" -> "Silver Crest Electric Blender". Or exact text.
     8. RETURN JSON FORMAT EXACTLY: {{"Name": "...", "Phone Number": "...", "Address": "...", "Product": "...", "Quantity": 1, "Price": 0}}
@@ -436,11 +481,13 @@ def analyze_single_order(raw_text, engine, groq_key, gem_key):
             return json.loads(response.choices[0].message.content)
         elif "Gemini" in engine:
             client = genai.Client(api_key=gem_key)
-            response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt, config={'temperature': 0.1, 'response_mime_type': 'application/json'})
-            return json.loads(response.text.strip())
+            response = client.models.generate_content(model='gemini-1.5-flash', contents=prompt)
+            text = re.sub(r'^```json\s*|\s*```$', '', response.text.strip(), flags=re.IGNORECASE|re.MULTILINE).strip()
+            match = re.search(r'\{[\s\S]*\}', text)
+            if match: return json.loads(match.group(0))
     except: return None
 
-# 🌟 AI VISION ENGINE (IMAGE TO ORDER) 🌟
+# 🌟 AI VISION ENGINE (GOOGLE.GENAI SDK) 🌟
 def extract_from_image_vision(image_file, api_key):
     try:
         client = genai.Client(api_key=api_key)
@@ -450,31 +497,25 @@ def extract_from_image_vision(image_file, api_key):
         Read the provided image (handwritten or printed in Bangla/English).
         Extract the following and output ONLY a raw JSON object:
         { "Name": "Clean Name", "Phone Number": "01...", "Address": "Full Address", "Product": "Product Name", "Quantity": integer, "Price": integer }
-        Do not add Markdown. Do not calculate math, grab the final total.
+        Do not add Markdown. Do not calculate math. Keep original language (Bangla) except phone numbers.
         """
         response = client.models.generate_content(model='gemini-1.5-flash', contents=[prompt, img])
         text = re.sub(r'^```json\s*|\s*```$', '', response.text.strip(), flags=re.IGNORECASE|re.MULTILINE).strip()
         text = re.sub(r'^```\s*|\s*```$', '', text, flags=re.IGNORECASE|re.MULTILINE).strip()
         match = re.search(r'\{[\s\S]*\}', text)
         if match: return json.loads(match.group(0))
-    except: return None
+    except Exception as e: 
+        st.error(f"Vision API Error: {e}")
+        return None
 
 # 🌟 PATHAO API (AUTO-RESOLVES AREA BY AI) 🌟
 def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, password):
     try:
         token_url = "https://api-hermes.pathao.com/aladdin/api/v1/issue-token"
-        token_payload = {
-            "client_id": client_id,
-            "client_secret": client_secret,
-            "grant_type": "password",
-            "username": email,
-            "password": password
-        }
+        token_payload = {"client_id": client_id, "client_secret": client_secret, "grant_type": "password", "username": email, "password": password}
         token_res = requests.post(token_url, json=token_payload)
         
-        if token_res.status_code != 200: 
-            return False, f"Auth Failed: Check Client ID/Secret or Email/Password."
-            
+        if token_res.status_code != 200: return False, f"Auth Failed: Check Client ID/Secret or Email/Password."
         access_token = token_res.json().get("access_token")
         
         order_url = "https://api-hermes.pathao.com/aladdin/api/v1/orders"
@@ -494,9 +535,28 @@ def send_to_pathao_api(order_data, client_id, client_secret, store_id, email, pa
             "amount_to_collect": int(order_data.get("Price", 0))
         }
         order_res = requests.post(order_url, headers=headers, json=payload)
-        if order_res.status_code in [200, 201]: 
-            cons_id = order_res.json().get('data', {}).get('consignment_id', 'Success')
-            return True, cons_id
+        
+        if order_res.status_code in [200, 201]:
+            resp_data = order_res.json().get('data', {})
+            cons_id = resp_data.get('consignment_id', 'Success')
+            
+            is_incomplete = False
+            str_resp = order_res.text.replace(" ", "")
+            if ('"city_id":1' in str_resp and '"zone_id":1' in str_resp) or ('"recipient_city":1' in str_resp and '"recipient_zone":1' in str_resp):
+                is_incomplete = True
+                
+            if not is_incomplete and cons_id != 'Success':
+                try:
+                    info_res = requests.get(f"https://api-hermes.pathao.com/aladdin/api/v1/orders/{cons_id}", headers=headers, timeout=5)
+                    str_info = info_res.text.replace(" ", "")
+                    if ('"city_id":1' in str_info and '"zone_id":1' in str_info) or ('"recipient_city":1' in str_info and '"recipient_zone":1' in str_info):
+                        is_incomplete = True
+                except: pass
+                
+            final_note = f"{cons_id}"
+            if is_incomplete: final_note += " ⚠️ Incomplete (Dhaka, Banani)"
+            
+            return True, final_note
         else: return False, f"Pathao Error: {order_res.json().get('message', 'Invalid Entry')}"
     except Exception as e: return False, f"Connection Error: {str(e)}"
 
@@ -506,6 +566,7 @@ def generate_excel_bytes(orders_list, sheet_date, product_list):
     for order in orders_list:
         clean_order = {k: v for k, v in order.items() if k not in ['is_duplicate', 'id', 'RawText', 'Expander_Title', 'Method', 'is_sent', 'temp_id']}
         export_data.append(clean_order)
+        push_order_to_supabase(clean_order)
         
     export_df = pd.DataFrame(export_data)
     export_df['Quantity'] = pd.to_numeric(export_df.get('Quantity', 1), errors='coerce').fillna(1).astype(int)
@@ -612,15 +673,19 @@ with tab_workspace:
         filter_type = st.sidebar.radio("Extract Data By:", ["All Time", "Specific Date", "Time Range (Copy-Paste)"])
         target_date_str, start_str, end_str = "", "", ""
 
-        if filter_type == "Specific Date": target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", datetime.now(BD_TZ).strftime("%-m/%-d/%y"))
+        now = datetime.now(BD_TZ)
+        # WINDOWS SAFE DATE FORMAT
+        safe_date_format = f"{now.month}/{now.day}/{now.strftime('%y')}"
+
+        if filter_type == "Specific Date": target_date_str = st.sidebar.text_input("Enter Exact Date (e.g. 3/4/26):", safe_date_format)
         elif filter_type == "Time Range (Copy-Paste)":
-            start_str = st.sidebar.text_input("Start Time:", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else "[3/4/26, 9:21:30 PM]")
-            end_str = st.sidebar.text_input("End Time:", "[3/4/26, 10:08:27 PM]")
+            start_str = st.sidebar.text_input("Start Time:", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else f"[{safe_date_format}, 9:21:30 PM]")
+            end_str = st.sidebar.text_input("End Time:", f"[{safe_date_format}, 10:08:27 PM]")
 
         uploaded_file = st.file_uploader("📂 Upload WhatsApp Chat (.txt)", type="txt")
 
         if uploaded_file:
-            if st.button("▶️ Start Regex Extraction", type="primary", use_container_width=True):
+            if st.button("▶️ Start Regex Extraction", type="primary"):
                 with st.spinner("Processing file with Base Regex Core..."):
                     try:
                         content = uploaded_file.read().decode("utf-8").replace('\u200e', '').replace('\u200f', '')
@@ -644,8 +709,6 @@ with tab_workspace:
                         end_dt = parse_copy_paste_time(end_str) if filter_type == "Time Range (Copy-Paste)" else None
                         
                         for msg in messages:
-                            if is_whatsapp_system_message(msg["text"]): continue
-                            
                             if filter_type == "All Time": filtered_messages.append(msg)
                             elif filter_type == "Specific Date" and target_date_str:
                                 if msg["date_str"] == target_date_str.strip(): filtered_messages.append(msg)
@@ -681,6 +744,7 @@ with tab_workspace:
                             
                             hist_src = f"Time Range ({start_str} to {end_str})" if filter_type == "Time Range (Copy-Paste)" else f"Date ({target_date_str})" if filter_type == "Specific Date" else "All Time"
                             log_task(f"Extracted {len(temp_orders)} orders via Regex. Source: {hist_src}.")
+                            sync_profile_to_db()
                             st.success(f"Success! Found {len(temp_orders)} valid orders.")
                         else:
                             st.session_state.all_orders = []
@@ -694,9 +758,11 @@ with tab_workspace:
             st.error("⚠️ Selenium is not installed! Please install via terminal: `pip install selenium webdriver-manager`")
         else:
             target_group = st.text_input("🎯 Live Target Group Name:", "ORDER COLLECTION")
-            start_time_str = st.text_input("⏱️ Scrape From Exact Time (Copy-Paste):", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else "[3/4/26, 7:16:42 PM]")
+            now = datetime.now(BD_TZ)
+            safe_date_format = f"{now.month}/{now.day}/{now.strftime('%y')}"
+            start_time_str = st.text_input("⏱️ Scrape From Exact Time (Copy-Paste):", st.session_state.last_checkpoint if st.session_state.last_checkpoint != "No record yet" else f"[{safe_date_format}, 7:16:42 PM]")
 
-            if st.button("🚀 Launch WhatsApp & Fetch Orders", type="primary", use_container_width=True):
+            if st.button("🚀 Launch WhatsApp & Fetch Orders", type="primary"):
                 target_limit_dt = parse_copy_paste_time(start_time_str)
                 if not target_limit_dt:
                     st.error("⚠️ Start Time-এর ফরম্যাট ভুল! ব্র্যাকেট সহ ঠিকমতো কপি-পেস্ট করো।")
@@ -796,8 +862,7 @@ with tab_workspace:
                                             time_str = parts[0] if ':' in parts[0] else parts[1]
                                             
                                             raw_msg_constructed = f"[{date_str}, {time_str}] {sender} {msg_text}"
-                                            if not is_whatsapp_system_message(raw_msg_constructed):
-                                                filtered_messages.append({"date_obj": dt_obj, "date_str": date_str, "time_str": time_str, "msg_dt": msg_dt, "text": raw_msg_constructed})
+                                            filtered_messages.append({"date_obj": dt_obj, "date_str": date_str, "time_str": time_str, "msg_dt": msg_dt, "text": raw_msg_constructed})
                                 except: pass
                             driver.quit()
                             
@@ -829,6 +894,7 @@ with tab_workspace:
                                 st.session_state.last_checkpoint = f"[{last_order['Date']}, {last_order['Time']}]"
                                 
                                 log_task(f"Scraped {len(temp_orders)} orders via Live Scraper.")
+                                sync_profile_to_db()
                                 st.balloons()
                             else:
                                 st.session_state.all_orders = []
@@ -910,6 +976,7 @@ with tab_workspace:
                     for dob in doubtful_orders:
                         o_id = dob['id']
                         issue_text = ', '.join(dob['issues'])
+                        # 🌟 FIXED: THE FIX BUTTON IS BACK 🌟
                         st.markdown(f"""
                             <div class="doubt-card">
                                 <div style="flex: 1;">
@@ -923,7 +990,6 @@ with tab_workspace:
             col_m1, col_m2 = st.columns([4, 1.5])
             with col_m1: st.markdown("### 📋 Manage Orders")
             with col_m2:
-                # 🌟 IMAGE UPLOAD FOR MANUAL ORDER (VISION AI) 🌟
                 img_file = st.file_uploader("📸 Scan Image to Order", type=["png", "jpg", "jpeg"])
                 if img_file:
                     if st.button("✨ Extract from Image", type="primary"):
@@ -958,7 +1024,6 @@ with tab_workspace:
                     st.session_state.all_orders.insert(0, new_manual_order)
                     st.rerun()
 
-            # 🌟 FLAWLESS STATE BINDING ENGINE (NO WIDGET EXCEPTIONS) 🌟
             for i, row in enumerate(st.session_state.all_orders):
                 if 'id' not in row: row['id'] = str(uuid.uuid4())
                 o_id = row['id']
@@ -983,7 +1048,6 @@ with tab_workspace:
                     
                     c1, c2 = st.columns([1, 1])
                     with c1:
-                        # 🌟 RENDER WIDGETS AND GET NEW VALUES DIRECTLY 🌟
                         new_name = st.text_input("👤 Name:", value=row.get('Name',''), key=f"name_{o_id}")
                         new_addr = st.text_input("🏠 Address:", value=row.get('Address',''), key=f"addr_{o_id}")
                         new_phone = st.text_input("📱 Phone:", value=row.get('Phone Number',''), key=f"phone_{o_id}")
@@ -995,7 +1059,6 @@ with tab_workspace:
                         
                         new_note = st.text_input("📝 Note:", value=row.get('Note', ''), key=f"note_{o_id}")
                         
-                        # UPDATE CORE DICT (NO SESSION STATE CACHE CONFLICT)
                         st.session_state.all_orders[i]['Name'] = new_name
                         st.session_state.all_orders[i]['Address'] = new_addr
                         st.session_state.all_orders[i]['Phone Number'] = new_phone
@@ -1039,14 +1102,15 @@ with tab_workspace:
                                     if success:
                                         st.session_state.all_orders[i]['Approval'] = "Sent to Pathao"
                                         st.session_state.all_orders[i]['Note'] = f"✅ Pathao ID: {pathao_msg}"
-                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4()) # Magic refresh
+                                        
                                         log_task(f"Pushed order {new_name} to Pathao. ID: {pathao_msg}")
                                         st.success(f"Success! Consignment ID: {pathao_msg}")
+                                        
+                                        st.session_state.all_orders[i]['id'] = str(uuid.uuid4())
                                         time.sleep(1)
                                         st.rerun()
                                     else: st.error(pathao_msg)
                                         
-                    # 🌟 THE FLAWLESS AI ANALYZE FIX (UUID BYPASS) 🌟
                     with col_rm3:
                         st.markdown("<br>", unsafe_allow_html=True)
                         if st.button("🤖 AI Analyze", key=f"ai_analyze_btn_{o_id}"):
@@ -1061,7 +1125,6 @@ with tab_workspace:
                                     new_data = analyze_single_order(row.get('RawText',''), eng, st.session_state.groq_api_key, st.session_state.gemini_api_key)
 
                                     if new_data:
-                                        # Only write back to the data structure
                                         st.session_state.all_orders[i]['Name'] = str(new_data.get('Name', new_name)).strip()
                                         st.session_state.all_orders[i]['Address'] = str(new_data.get('Address', new_addr)).strip()
                                         
@@ -1076,7 +1139,6 @@ with tab_workspace:
                                         st.session_state.all_orders[i]['Quantity'] = int(new_data.get('Quantity', new_qty))
                                         st.session_state.all_orders[i]['Method'] = "🤖 AI Corrected"
                                         
-                                        # 🌟 MAGIC: Force Streamlit to forget the old widgets by assigning a new UUID!
                                         st.session_state.all_orders[i]['id'] = str(uuid.uuid4())
                                         
                                         st.success("✅ AI perfectly fixed the data!")
@@ -1097,25 +1159,29 @@ with tab_workspace:
             
             col_d1, col_d2 = st.columns(2)
             with col_d1:
-                st.download_button(label="📥 Download Excel File", data=excel_bytes, file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True, on_click=lambda: log_task(f"Downloaded Excel file: {filename}"))
+                st.download_button(label="📥 Download Excel File", data=excel_bytes, file_name=filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
             with col_d2:
                 csv_filename = f"NWOP_Orders_{st.session_state.sheet_date}.csv"
-                st.download_button(label="📊 Download CSV (For Google Sheets)", data=csv_bytes, file_name=csv_filename, mime="text/csv", type="secondary", use_container_width=True, on_click=lambda: log_task(f"Downloaded CSV file for Google Sheets: {csv_filename}"))
+                st.download_button(label="📊 Download CSV (For Google Sheets)", data=csv_bytes, file_name=csv_filename, mime="text/csv", type="secondary")
 
+        # 🌟 JUNK MESSAGES (ORIGINAL MESSAGE INCLUDED) 🌟
         if suspected_msgs:
             st.markdown("<br>", unsafe_allow_html=True)
             with st.expander(f"🚨 SUSPECTED MISSED ORDERS ({len(suspected_msgs)} items)", expanded=True):
                 for idx, sm in enumerate(suspected_msgs):
                     sm_id = sm.get("id", f"susp_{idx}")
                     st.caption(f"🕒 {sm.get('Date', '')} - {sm.get('Time', '')}")
-                    clean_display = re.split(r'^\[.*?\] .*?:\s', sm.get('Text', sm.get('RawText', '')), maxsplit=1)[-1]
-                    st.error(clean_display)
+                    raw_txt = sm.get('Text', sm.get('RawText', ''))
+                    clean_display = re.split(r'^\[.*?\] .*?:\s', raw_txt, maxsplit=1)[-1]
+                    
+                    st.error(f"**Reason:** {sm.get('Reason', 'Unknown Keyword Flag')} \n\n**Original Message:**\n{clean_display}")
+                    
                     if st.button("➕ List as Order", key=f"add_susp_{sm_id}"):
                         new_order = {
                             "id": str(uuid.uuid4()), "Date": sm.get("Date", ""), "Time": sm.get("Time", ""),
                             "Name": "N/A", "Phone Number": "N/A", "Address": "N/A", "Product": "Electric Blender", "Quantity": 1, "Price": 0,
                             "Approval": "Pending", "Note": "From Suspected List", "is_duplicate": False,
-                            "RawText": sm.get('Text', sm.get('RawText', '')), "Method": "✍️ Manual",
+                            "RawText": raw_txt, "Method": "✍️ Manual",
                         }
                         st.session_state.all_orders.insert(0, new_order)
                         st.session_state.ignored_messages = [m for m in st.session_state.ignored_messages if m.get("id") != sm_id]
@@ -1128,20 +1194,23 @@ with tab_workspace:
                 for idx, jm in enumerate(system_junk):
                     jm_id = jm.get("id", f"junk_{idx}")
                     st.caption(f"🕒 {jm.get('Date', '')} - {jm.get('Time', '')}")
-                    clean_display = re.split(r'^\[.*?\] .*?:\s', jm.get('Text', jm.get('RawText', '')), maxsplit=1)[-1]
-                    st.code(clean_display, language="text")
+                    raw_txt = jm.get('Text', jm.get('RawText', ''))
+                    clean_display = re.split(r'^\[.*?\] .*?:\s', raw_txt, maxsplit=1)[-1]
+                    
+                    st.warning(f"**Reason:** {jm.get('Reason', 'System Junk Filtered')} \n\n**Original Message:**\n{clean_display}")
+                    
                     if st.button("➕ List as Order", key=f"add_junk_{jm_id}"):
                         new_order = {
                             "id": str(uuid.uuid4()), "Date": jm.get("Date", ""), "Time": jm.get("Time", ""),
                             "Name": "N/A", "Phone Number": "N/A", "Address": "N/A", "Product": "Electric Blender", "Quantity": 1, "Price": 0,
                             "Approval": "Pending", "Note": "From Junk List", "is_duplicate": False,
-                            "RawText": jm.get('Text', jm.get('RawText', '')), "Method": "✍️ Manual",
+                            "RawText": raw_txt, "Method": "✍️ Manual",
                         }
                         st.session_state.all_orders.insert(0, new_order)
                         st.session_state.ignored_messages = [m for m in st.session_state.ignored_messages if m.get("id") != jm_id]
                         st.rerun()
 
-# 🌟 NEW BULK PATHAO UPLOAD TAB 🌟
+# 🌟 BULK PATHAO UPLOAD TAB 🌟
 with tab_bulk_pathao:
     st.header("🚚 Bulk Pathao Upload")
     st.info("Upload your exported NWOP Excel/CSV file to send multiple orders to Pathao at once. You can edit before sending and stop anytime!")
@@ -1156,20 +1225,48 @@ with tab_bulk_pathao:
             if bulk_file.name.endswith('.csv'): b_df = pd.read_csv(bulk_file, dtype=str)
             else: b_df = pd.read_excel(bulk_file, sheet_name="Orders", dtype=str)
             
+            # 🌟 NAN & EMPTY ROW RECOVERY 🌟
+            b_df.dropna(how='all', inplace=True)
             b_df = b_df.rename(columns={'Sl.': 'SNO', 'price': 'Price', 'approved': 'Approval'})
             
             bulk_orders = []
             for _, row in b_df.iterrows():
+                # Skip if row is completely empty
+                if pd.isna(row.get('Phone Number')) and pd.isna(row.get('Name')): continue
+                
                 appr = str(row.get('Approval', 'Pending'))
                 note = str(row.get('Note', ''))
                 is_sent = "Sent to Pathao" in appr or "Pathao ID" in note
                 
+                raw_ph = str(row.get('Phone Number', 'N/A')).replace('.0', '').strip()
+                if raw_ph.lower() == 'nan': raw_ph = 'N/A'
+                clean_ph = format_phone_number(raw_ph) if raw_ph != "N/A" else "N/A"
+                
+                raw_qty = str(row.get('Quantity', 1)).replace('N/A', '1').strip().lower()
+                if raw_qty == 'nan' or not raw_qty: raw_qty = '1'
+                try: final_qty = int(float(raw_qty))
+                except: final_qty = 1
+                
+                raw_price = str(row.get('Price', 0)).replace('N/A', '0').strip().lower()
+                if raw_price == 'nan' or not raw_price: raw_price = '0'
+                try: final_price = int(float(raw_price))
+                except: final_price = 0
+                
+                raw_name = str(row.get('Name', 'N/A'))
+                if raw_name.lower() == 'nan': raw_name = 'N/A'
+                
+                raw_addr = str(row.get('Address', 'N/A'))
+                if raw_addr.lower() == 'nan': raw_addr = 'N/A'
+                
+                raw_prod = str(row.get('Product', 'Electric Blender'))
+                if raw_prod.lower() == 'nan': raw_prod = 'Electric Blender'
+                
                 bulk_orders.append({
-                    "id": str(uuid.uuid4()), "Name": str(row.get('Name', 'N/A')),
-                    "Phone Number": str(row.get('Phone Number', 'N/A')).replace('.0', ''),
-                    "Address": str(row.get('Address', 'N/A')), "Product": str(row.get('Product', 'Electric Blender')),
-                    "Quantity": int(float(str(row.get('Quantity', 1)).replace('N/A', '1') or 1)),
-                    "Price": int(float(str(row.get('Price', 0)).replace('N/A', '0') or 0)),
+                    "id": str(uuid.uuid4()), "Name": raw_name,
+                    "Phone Number": clean_ph,
+                    "Address": raw_addr, "Product": raw_prod,
+                    "Quantity": final_qty,
+                    "Price": final_price,
                     "Approval": appr, "Note": note, "is_sent": is_sent,
                     "Date": str(row.get('Date', datetime.now(BD_TZ).strftime("%d/%m/%y"))),
                     "Time": str(row.get('Time', datetime.now(BD_TZ).strftime("%I:%M %p"))),
@@ -1198,7 +1295,7 @@ with tab_bulk_pathao:
             
             col1, col2 = st.columns([1, 4])
             with col1:
-                start_send = st.button("🚀 Confirm & Send to Pathao", type="primary", use_container_width=True)
+                start_send = st.button("🚀 Confirm & Send to Pathao", type="primary")
                 
             if start_send:
                 if not st.session_state.pathao_client_id or not st.session_state.pathao_email:
@@ -1209,8 +1306,10 @@ with tab_bulk_pathao:
                         orig['Name'] = ed['Name']
                         orig['Phone Number'] = ed['Phone Number']
                         orig['Address'] = ed['Address']
-                        orig['Price'] = int(ed['Price'])
-                        orig['Quantity'] = int(ed['Quantity'])
+                        try: orig['Price'] = int(float(ed['Price']))
+                        except: orig['Price'] = 0
+                        try: orig['Quantity'] = int(float(ed['Quantity']))
+                        except: orig['Quantity'] = 1
                         orig['Note'] = ed['Note']
                         final_pending.append(orig)
                     
@@ -1221,7 +1320,6 @@ with tab_bulk_pathao:
                     st.session_state.bulk_total_to_send = len(final_pending)
                     st.rerun()
 
-    # --- BULK SENDING LOOP (ONE BY ONE RERUN) ---
     if st.session_state.get('is_sending_bulk'):
         total = st.session_state.bulk_total_to_send
         done = len(st.session_state.bulk_results)
@@ -1277,10 +1375,9 @@ with tab_bulk_pathao:
         
         col_b1, col_b2 = st.columns(2)
         with col_b1:
-            st.download_button(label="📥 Download Updated Excel (Red Marked)", data=bulk_excel, file_name=bulk_filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True)
+            st.download_button(label="📥 Download Updated Excel (Red Marked)", data=bulk_excel, file_name=bulk_filename, mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
         with col_b2:
-            st.download_button(label="📊 Download Updated CSV", data=bulk_csv, file_name=bulk_filename.replace('.xlsx', '.csv'), mime="text/csv", type="secondary", use_container_width=True)
-
+            st.download_button(label="📊 Download Updated CSV", data=bulk_csv, file_name=bulk_filename.replace('.xlsx', '.csv'), mime="text/csv", type="secondary")
 
 # 🌟 NATIVE CHAT UI AI ASSISTANT TAB 🌟
 with tab_ai_assistant:
@@ -1290,7 +1387,7 @@ with tab_ai_assistant:
     col_c1, col_c2 = st.columns([5, 1])
     with col_c2:
         if st.button("🧹 Clear Chat"):
-            st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার অর্ডার বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
+            st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
             st.rerun()
     
     if not GROQ_AVAILABLE or not st.session_state.groq_api_key:
@@ -1298,6 +1395,15 @@ with tab_ai_assistant:
         
     total_orders = len(st.session_state.all_orders)
     total_revenue = sum(int(o.get('Price', 0)) for o in st.session_state.all_orders)
+    
+    db_history_context = "No recent database history found."
+    if SUPABASE_AVAILABLE and st.session_state.get('supabase'):
+        try:
+            orders_res = st.session_state.supabase.table('nwop_orders').select('order_data').eq('user_id', st.session_state.user.id).order('created_at', desc=True).limit(50).execute()
+            if orders_res.data:
+                db_orders = [o['order_data'] for o in orders_res.data]
+                db_history_context = json.dumps(db_orders, ensure_ascii=False)[:2500] 
+        except: pass
     
     for msg in st.session_state.chat_history:
         with st.chat_message(msg["role"]): st.markdown(msg["content"])
@@ -1311,9 +1417,20 @@ with tab_ai_assistant:
             with st.spinner("🤖 Thinking..."):
                 try:
                     system_prompt = f"""
-                    You are NWOP AI, a friendly assistant for a business manager named Nazrul Rana.
-                    Speak in Bengali or English.
-                    BUSINESS CONTEXT: Orders Today: {total_orders}, Revenue: {total_revenue} Tk. Products: {', '.join(st.session_state.product_list)}
+                    You are "NWOP AI" (Nazrul's Whatsapp Order Parser AI), a highly intelligent, friendly, and professional conversational assistant.
+                    Your creator/developer is Nazrul Rana. 
+                    Developer Details:
+                    - Name: Nazrul Rana
+                    - Education: B.Sc. in Computer Science and Engineering (CSE) from Southeast University, Bangladesh.
+                    - WhatsApp: 01641434000
+                    - Facebook: https://www.facebook.com/nazrulranaxD.s
+                    - LinkedIn: https://www.linkedin.com/in/nazrulhuda/
+                    
+                    Your Capabilities:
+                    - Process, analyze, and discuss the user's business data. 
+                    - CURRENT SESSION CONTEXT: Orders Today: {total_orders}, Revenue: {total_revenue} Tk. Products: {', '.join(st.session_state.product_list)}
+                    - RECENT DATABASE HISTORY CONTEXT: {db_history_context}
+                    - Excellent at casual chatting (Adda), telling jokes, current weather, Bangladesh news.
                     """
                     
                     if "Groq" in st.session_state.analyze_engine and st.session_state.groq_api_key:
@@ -1323,10 +1440,11 @@ with tab_ai_assistant:
                         response = client.chat.completions.create(messages=api_messages, model=model_use, temperature=0.6)
                         ai_reply = response.choices[0].message.content
                     elif st.session_state.gemini_api_key:
-                        client = genai.Client(api_key=st.session_state.gemini_api_key)
+                        genai.configure(api_key=st.session_state.gemini_api_key)
+                        model = genai.GenerativeModel('gemini-1.5-flash-latest')
                         chat_history_str = "\n".join([f"{m['role']}: {m['content']}" for m in st.session_state.chat_history])
                         full_prompt = f"{system_prompt}\n\nChat History:\n{chat_history_str}"
-                        response = client.models.generate_content(model='gemini-1.5-flash', contents=full_prompt)
+                        response = model.generate_content(full_prompt)
                         ai_reply = response.text.strip()
                     else:
                         ai_reply = "⚠️ Please set your Groq or Gemini API Key in Settings to use the AI Assistant."
@@ -1351,7 +1469,7 @@ with tab_merge:
                 for file in uploaded_excels:
                     df = pd.read_excel(file, sheet_name="Orders", dtype=str)
                     if 'Phone Number' in df.columns:
-                        df['Phone Number'] = df['Phone Number'].fillna("N/A").apply(lambda x: str(x).replace('.0', '') if str(x).endswith('.0') else str(x))
+                        df['Phone Number'] = df['Phone Number'].fillna("N/A").apply(lambda x: format_phone_number(str(x).replace('.0', '')))
                     all_dfs.append(df)
                 
                 merged_df = pd.concat(all_dfs, ignore_index=True)
@@ -1380,9 +1498,9 @@ with tab_merge:
                 
                 col_md1, col_md2 = st.columns(2)
                 with col_md1:
-                    st.download_button(label="📥 Download Master Excel", data=bulk_excel, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary", use_container_width=True, on_click=lambda: log_task(f"Merged {len(uploaded_excels)} files into 1 Master Excel File."))
+                    st.download_button(label="📥 Download Master Excel", data=bulk_excel, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.xlsx", mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", type="primary")
                 with col_md2:
-                    st.download_button(label="📊 Download CSV (For Google Sheets)", data=bulk_csv, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv", mime="text/csv", type="secondary", use_container_width=True, on_click=lambda: log_task(f"Merged CSV Downloaded."))
+                    st.download_button(label="📊 Download CSV (For Google Sheets)", data=bulk_csv, file_name=f"NWOP_Master_{datetime.now(BD_TZ).strftime('%d-%m-%y')}.csv", mime="text/csv", type="secondary")
             except Exception as e:
                 st.error(f"Error processing files: {e}. Please make sure you uploaded valid NWOP Excel files.")
 
@@ -1395,13 +1513,12 @@ with tab_history:
         if st.button("Clear History", type="secondary"):
             st.session_state.task_history = []
             st.session_state.last_checkpoint = "No record yet"
-            learned = [p for p in st.session_state.product_list if p not in DEFAULT_PRODUCTS]
-            save_data([], "No record yet", st.session_state.groq_api_key, st.session_state.gemini_api_key, st.session_state.pathao_client_id, st.session_state.pathao_client_secret, st.session_state.pathao_store_id, st.session_state.pathao_email, st.session_state.pathao_password, learned)
+            sync_profile_to_db()
             st.rerun()
 
 with tab_settings:
     st.header("⚙️ NWOP Settings")
-    st.markdown("**Version:** NWOP v45.0 (The Perfect Engine)")
+    st.markdown("**Version:** NWOP v51.0 (The Perfect Stable Core)")
     
     st.markdown("### ⚡ AI Engine Keys")
     new_api_key = st.text_input("Groq API Key (Speed & High Quota)", type="password", value=st.session_state.groq_api_key, placeholder="gsk_...")
@@ -1430,17 +1547,15 @@ with tab_settings:
         st.session_state.pathao_store_id = new_p_store
         if new_custom_prod: learn_new_product(new_custom_prod.strip())
         
-        hist, chk, _, _, _, _, _, _, _, learned = load_data()
-        save_data(hist, chk, new_api_key, new_gem_key, new_p_client, new_p_secret, new_p_store, new_p_email, new_p_pass, learned)
-        st.success("✅ Settings Saved Successfully!")
+        sync_profile_to_db()
+        st.success("✅ Settings Saved Successfully to Supabase!")
         
     st.markdown("---")
-    st.info(f"The default master password is '{CORRECT_PASSWORD}'.")
     if st.button("Reset Memory / Clear App Data", type="secondary"):
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
         st.session_state.total_extracted_today = 0
         st.session_state.total_scanned = 0
-        st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার অর্ডার বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
+        st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
         log_task("App memory completely wiped.")
         st.rerun()
 
@@ -1459,7 +1574,10 @@ with tab_about:
     st.markdown("#### 👨‍💻 Developer Profile")
     st.markdown("""
     * **Name:** Nazrul Rana
-    * **WhatsApp:** +880164143400
-    * **Version:** 45.0 (The Perfect Engine)
+    * **Education:** B.Sc. in Computer Science and Engineering (CSE), Southeast University.
+    * **WhatsApp:** 01641434000
+    * **Facebook:** [nazrulranaxD.s](https://www.facebook.com/nazrulranaxD.s)
+    * **LinkedIn:** [nazrulhuda](https://www.linkedin.com/in/nazrulhuda/)
+    * **Version:** 51.0 (The Perfect Stable Core)
     """)
     st.info("For any bug reports, feature requests, custom automation tools, or software development inquiries, please feel free to reach out via WhatsApp.")
