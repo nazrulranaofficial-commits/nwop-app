@@ -309,7 +309,7 @@ if 'profile_loaded' not in st.session_state:
     st.session_state.profile_loaded = True
 
 if 'analyze_engine' not in st.session_state: st.session_state.analyze_engine = "Groq: Llama 3.1 8B (Fast & Reliable)"
-if 'chat_history' not in st.session_state: st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
+if 'chat_history' not in st.session_state: st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
 if 'all_orders' not in st.session_state: st.session_state.all_orders = []
 if 'ignored_messages' not in st.session_state: st.session_state.ignored_messages = []
 if 'total_scanned' not in st.session_state: st.session_state.total_scanned = 0
@@ -398,7 +398,7 @@ def extract_order_details(msg_dict):
     major_labels = ['নাম', 'name', 'nam', 'ফুল ঠিকানা', 'ঠিকানা', 'ঠীকানা', 'thikana', 'address', 'add', 'এড্রেস']
     for kw in major_labels: clean_body = re.sub(rf'(?<![a-zA-Z0-9\u0980-\u09FF,])({kw})', r',\1', clean_body, flags=re.IGNORECASE)
         
-    address_indicators = ['থানা', 'জেলা', 'গ্রাম', 'পোস্ট', 'বাজার', 'রোড', 'সদর', 'উপজেলা', 'মোড়', 'para', 'pur', 'gram', 'thana', 'bazar', 'road', 'zilla', 'district', 'upazila', 'বিভাগ', 'ওয়ার্ড', 'ঢাকা','চট্টগ্রাম','রাজশাহী','খুলনা','বরিশাল','সিলেট','রংপুর','ময়মনসিংহ','কুমিল্লা','নোয়াখালী','ফেনী','চাঁদপুর','ব্রাহ্মণবাড়িয়া','গাজীপুর','টাঙ্গাইল','নারায়ণগঞ্জ','নরসিংদী','ফরিদপুর','মাদারীপুর','শরীয়তপুর','গোপালগঞ্জ','কিশোরগঞ্জ','সুনামগঞ্জ','হবিগঞ্জ','মৌলভীবাজার','রাঙ্গামাটি','বান্দরবান','খাগড়াছড়ি','কক্সবাজার','লক্ষ্মীপুর','ভোলা','পটুয়াখালী','বরগুনা','ঝালকাঠি','পিরোজপুর','যশোর','সাতক্ষীরা','ঝিনাইদহ','মাগুরা','নড়াইল','বাগেরহাট','কুষ্টিয়া','কুষ্টিয়া','চুয়াডাঙ্গা','মেহেরপুর','পাবনা','সিরাজগঞ্জ','বগুড়া','জয়পুরহাট','নওগাঁ','নাটোর','চাঁপাইনবাবগঞ্জ','দিনাজপুর','ঠাকুরগাঁও','পঞ্চগড়','নীলফামারী','কুড়িগ্রাম','লালমনিরহাট','গাইবান্ধা','জামালপুর','শেরপুর','নেত্রকোণা']
+    address_indicators = ['থানা', 'জেলা', 'গ্রাম', 'পোস্ট', 'বাজার', 'রোড', 'সদর', 'উপজেলা', 'মোড়', 'para', 'pur', 'gram', 'thana', 'bazar', 'road', 'zilla', 'district', 'upazila', 'বিভাগ', 'ওয়ার্ড', 'ঢাকা','চট্টগ্রাম','রাজশাহী','খুলনা','বরিশাল','সিলেট','রংপুর','ময়মনসিংহ','কুমিল্লা','নোয়াখালী','ফেনী','চাঁদপুর','ব্রাহ্মণবাড়িয়া','গাজীপুর','টাঙ্গাইল','নারায়ণগঞ্জ','নরসিংদী','ফরিদপুর','মাদারীপুর','শরীয়তপুর','গোপালগঞ্জ','কিশোরগঞ্জ','সুনামগঞ্জ','হবিগঞ্জ','মৌলভীবাজার','রাঙ্গামাটি','বান্দরবান','খাগড়াছড়ি','কক্সবাজার','লক্ষ্মীপুর','ভোলা','পটুয়াখালী','বরগুনা','ঝালকাঠি','পিরোজপুর','যশোর','সাতক্ষীরা','ঝিনাইদহ','মাগুরা','নড়াইল','বাগেরহাট','কুষ্টিয়া','কুষ্টিয়া','চুয়াডাঙ্গা','মেহেরপুর','পাবনা','সিরাজগঞ্জ','বগুড়া','জয়পুরহাট','নওগাঁ','নাটোর','চাঁপাইনবাবগঞ্জ','দিনাজপুর','ঠাকুরগাঁও','পঞ্চগড়','নীলফামারী','কুড়িগ্রাম','লালমনিরহাট','গাইবান্ধা','জামালপুর','শেরপুর','নেত্রকোণা']
     for kw in address_indicators: clean_body = re.sub(rf'(?<![a-zA-Z0-9\u0980-\u09FF,])({kw})', r',\1', clean_body, flags=re.IGNORECASE)
 
     clean_body = re.sub(r'(?:মোবাইল\s*নাম্বার|মোবাইল|ফোন\s*নাম্বার|ফোন|নাম্বার|mobile\s*number|mobile|phone\s*number|phone|number)[\sঃ:=-]*', '', clean_body, flags=re.IGNORECASE)
@@ -408,7 +408,7 @@ def extract_order_details(msg_dict):
     explicit_name_found = False
 
     for chunk in raw_chunks:
-        if not re.search(r'[a-zA-Zঅ-য়0-9]', chunk): continue
+        if not re.search(r'[a-zA-Zঅ-য়0-9]', chunk): continue
         cleaned_chunk = re.sub(r'^[+0-9\s-]+$', '', chunk).strip()
         if not cleaned_chunk: continue
 
@@ -433,7 +433,7 @@ def extract_order_details(msg_dict):
 
     if name == "N/A" and address_lines: name = address_lines.pop(0)
 
-    addr_hints = ['বাড়ি', 'বাড়ি', 'বাড়ী', 'বাড়ী', 'তলা', 'রোড', 'road', 'house', 'হাউজ', 'ফ্ল্যাট', 'flat', 'গ্রাম', 'থানা', 'জেলা', 'উপজেলা', 'মার্কেট', 'বটতলা', 'বাজার', 'কলেজ', 'গেট', 'gate', 'মোড়', 'mor', 'স্ট্যান্ড', 'stand', 'পাড়া', 'পাড়া', 'para', 'pur', 'পুর', 'নগর', 'nagar', 'ভবন', 'bhaban', 'building', 'tower', 'টাওয়ার', 'এলাকা', 'এভেনিউ', 'avenue', 'ব্লক', 'block', 'সেকশন', 'section', 'লেন', 'lane']
+    addr_hints = ['বাড়ি', 'বাড়ি', 'বাড়ী', 'বাড়ী', 'তলা', 'রোড', 'road', 'house', 'হাউজ', 'ফ্ল্যাট', 'flat', 'গ্রাম', 'থানা', 'জেলা', 'উপজেলা', 'মার্কেট', 'বটতলা', 'বাজার', 'কলেজ', 'গেট', 'gate', 'মোড়', 'mor', 'স্ট্যান্ড', 'stand', 'পাড়া', 'পাড়া', 'para', 'pur', 'পুর', 'নগর', 'nagar', 'ভবন', 'bhaban', 'building', 'tower', 'টাওয়ার', 'এলাকা', 'এভেনিউ', 'avenue', 'ব্লক', 'block', 'সেকশন', 'section', 'লেন', 'lane']
     
     if name != "N/A" and not explicit_name_found and len(address_lines) > 0:
         name_is_addr = any(hint.lower() in name.lower() for hint in addr_hints)
@@ -969,7 +969,7 @@ with tab_workspace:
                     issues.append("⚠️ High Qty (>3)")
                 
                 if str(row.get('Name','')).strip() == "N/A" or not str(row.get('Name','')).strip(): issues.append("Missing Name")
-                elif any(h in str(row.get('Name','')).lower() for h in ['বাড়ি', 'বাড়ি', 'থানা', 'জেলা', 'রোড', 'road', 'গ্রাম', 'house']):
+                elif any(h in str(row.get('Name','')).lower() for h in ['বাড়ি', 'বাড়ি', 'থানা', 'জেলা', 'রোড', 'road', 'গ্রাম', 'house']):
                     issues.append("Name looks like Address")
 
                 if str(row.get('Address','')).strip() == "N/A" or not str(row.get('Address','')).strip(): issues.append("Missing Address")
@@ -1425,7 +1425,7 @@ with tab_ai_assistant:
     col_c1, col_c2 = st.columns([5, 1])
     with col_c2:
         if st.button("🧹 Clear Chat"):
-            st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
+            st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
             st.rerun()
     
     if not GROQ_AVAILABLE or not st.session_state.groq_api_key:
@@ -1593,7 +1593,7 @@ with tab_settings:
         st.session_state.all_orders, st.session_state.ignored_messages = [], []
         st.session_state.total_extracted_today = 0
         st.session_state.total_scanned = 0
-        st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
+        st.session_state.chat_history = [{"role": "assistant", "content": "হ্যালো! আমি NWOP এআই। আপনার বিজনেস ডাটা বা অন্য যেকোনো বিষয়ে আমি সাহায্য করতে প্রস্তুত।"}]
         log_task("App memory completely wiped.")
         st.rerun()
 
