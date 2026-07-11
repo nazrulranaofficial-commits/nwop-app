@@ -1,6 +1,11 @@
 streamlit==1.56.0
-pandas
-openpyxl
+
+pandas==2.2.2
+numpy==2.0.2
+pyarrow==17.0.0
+openpyxl==3.1.5
+protobuf==5.29.5
+
 pillow
 pytz
 requests
